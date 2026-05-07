@@ -1,5 +1,4 @@
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:3333";
-import { supabase } from "../../../lib/supabase";
 const FINANCE_STORAGE_KEY = "omni:finance:entries:v4";
 const BILL_STORAGE_KEY = "omni:finance:bills:v1";
 
@@ -23,21 +22,14 @@ export type FinanceEntry = {
   document_name: string | null;
   notes: string | null;
   created_at: string;
-  updated_at?: string;
-  recurrence_rule_id?: number | null;
-  competence_month?: string | null;
-  chart_account_id?: number | null;
-  cost_center_id?: number | null;
 };
 
 export type FinanceBill = {
   id: number;
   entry_id: number;
   bill_code: string;
-  apartment_id: string | null;
   unit: string;
   resident: string;
-  resident_id: string | null;
   resident_email: string | null;
   competence_date: string;
   issue_date: string;
@@ -68,87 +60,11 @@ export type CreateFinanceEntryPayload = {
   status: string;
   documentName?: string | null;
   notes?: string | null;
-  recurrenceRuleId?: number | null;
-  competenceMonth?: string | null;
-  chartAccountId?: number | null;
-  costCenterId?: number | null;
-};
-
-export type UpdateFinanceEntryPayload = Partial<CreateFinanceEntryPayload>;
-
-export type FinanceChartAccount = {
-  id: number;
-  code: string;
-  name: string;
-  type: FinanceEntryType;
-  parent_id: number | null;
-  default_category: string | null;
-  active: boolean;
-  created_at: string;
-  updated_at: string;
-};
-
-export type FinanceCostCenter = {
-  id: number;
-  code: string;
-  name: string;
-  active: boolean;
-  created_at: string;
-  updated_at: string;
-};
-
-export type FinanceDashboard = {
-  month: string;
-  periodStart: string;
-  periodEnd: string;
-  balance: number;
-  monthlyRevenue: number;
-  monthlyExpense: number;
-  delinquencyAmount: number;
-  openAccountsCount: number;
-  openAccountsAmount: number;
-};
-
-export type FinanceDelinquencyItem = FinanceBill & {
-  days_overdue: number;
-};
-
-export type FinanceDelinquency = {
-  totalAmount: number;
-  totalUnits: number;
-  units: FinanceDelinquencyItem[];
-};
-
-export type FinanceCashFlowPoint = {
-  period: string;
-  revenues: number;
-  expenses: number;
-  balance: number;
-};
-
-export type FinanceCashFlow = {
-  from: string;
-  to: string;
-  points: FinanceCashFlowPoint[];
-};
-
-export type FinanceCategorySummary = {
-  category: string;
-  type: FinanceEntryType;
-  total: number;
-};
-
-export type FinanceReportSummary = {
-  from: string;
-  to: string;
-  byCategory: FinanceCategorySummary[];
 };
 
 export type CreateFinanceBillPayload = {
-  apartmentId?: string | null;
   unit: string;
   resident: string;
-  residentId?: string | null;
   residentEmail?: string | null;
   amount: number;
   competenceDate: string;
@@ -255,10 +171,8 @@ const defaultBills: FinanceBill[] = [
     id: 1,
     entry_id: 1,
     bill_code: "BOL-202603-0001",
-    apartment_id: null,
     unit: "Torre A - Ap 101",
     resident: "Gabriel Ferreira",
-    resident_id: null,
     resident_email: "gabriel.ferreira@example.com",
     competence_date: "2026-03-01",
     issue_date: "2026-03-01",
@@ -277,10 +191,8 @@ const defaultBills: FinanceBill[] = [
     id: 2,
     entry_id: 2,
     bill_code: "BOL-202603-0002",
-    apartment_id: null,
     unit: "Torre B - Ap 101",
     resident: "Helena Moraes",
-    resident_id: null,
     resident_email: "helena.moraes@example.com",
     competence_date: "2026-03-01",
     issue_date: "2026-03-01",
@@ -299,10 +211,8 @@ const defaultBills: FinanceBill[] = [
     id: 3,
     entry_id: 3,
     bill_code: "BOL-202602-0003",
-    apartment_id: null,
     unit: "Torre A - Ap 203",
     resident: "Carlos Henrique",
-    resident_id: null,
     resident_email: "carlos.henrique@example.com",
     competence_date: "2026-02-01",
     issue_date: "2026-02-01",
@@ -325,6 +235,40 @@ function ensureNumber(value: unknown) {
   return 0;
 }
 
+function pad(value: number | string, length: number) {
+  return String(value).padStart(length, "0");
+}
+
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function buildBarcode(seed: number, amount: number, dueDate: string) {
+  const amountDigits = pad(Math.round(amount * 100), 10);
+  const dueDigits = digitsOnly(dueDate).slice(-8);
+  const sequence = pad(seed, 14);
+  const freeField = `${sequence}${dueDigits}${amountDigits}`.slice(0, 25);
+  return `3419${dueDigits}${amountDigits}${freeField}`.slice(0, 44);
+}
+
+function buildDigitableLine(seed: number, amount: number, dueDate: string) {
+  const barcode = buildBarcode(seed, amount, dueDate);
+  return `${barcode.slice(0, 5)}.${barcode.slice(5, 10)} ${barcode.slice(10, 15)}.${barcode.slice(15, 21)} ${barcode.slice(21, 26)}.${barcode.slice(26, 32)} ${barcode.slice(32, 33)} ${barcode.slice(33, 47)}`.trim();
+}
+
+function buildBillCode(seed: number, competenceDate: string) {
+  return `BOL-${competenceDate.slice(0, 7).replace("-", "")}-${pad(seed, 4)}`;
+}
+
+function buildEntryIdentifier(seed: number, competenceDate: string) {
+  return `REC-${competenceDate.slice(0, 7).replace("-", "")}-${pad(seed, 4)}`;
+}
+
+function formatCompetence(competenceDate: string) {
+  const [year, month] = competenceDate.split("-").map(Number);
+  return `${pad(month, 2)}/${year}`;
+}
+
 function mapBillStatusToEntryStatus(status: FinanceBillStatus) {
   switch (status) {
     case "PAID":
@@ -343,12 +287,7 @@ function mapEntry(row: FinanceEntry): FinanceEntry {
 }
 
 function mapBill(row: FinanceBill): FinanceBill {
-  return {
-    ...row,
-    apartment_id: row.apartment_id ?? null,
-    resident_id: row.resident_id ?? null,
-    amount: ensureNumber(row.amount),
-  };
+  return { ...row, amount: ensureNumber(row.amount) };
 }
 
 function readLocalEntries() {
@@ -393,149 +332,33 @@ function writeLocalBills(bills: FinanceBill[]) {
   window.localStorage.setItem(BILL_STORAGE_KEY, JSON.stringify(bills));
 }
 
-function formatDateOnly(value?: string | null) {
-  if (!value) return new Date().toISOString().slice(0, 10);
-  return value.slice(0, 10);
+function mergeFinanceEntries(remote: FinanceEntry[], local: FinanceEntry[]) {
+  const merged = new Map<string, FinanceEntry>();
+
+  for (const entry of [...remote, ...local]) {
+    const key = entry.identifier || String(entry.id);
+    if (!merged.has(key)) {
+      merged.set(key, entry);
+    }
+  }
+
+  return Array.from(merged.values()).sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
 }
 
-function simpleDigits(value: string) {
-  return value.replace(/\D/g, "");
-}
+function mergeFinanceBills(remote: FinanceBill[], local: FinanceBill[]) {
+  const merged = new Map<string, FinanceBill>();
 
-function makeBarcode(seed: number, amount: number, dueDate: string) {
-  const amountDigits = String(Math.round(amount * 100)).padStart(10, "0");
-  const dueDigits = simpleDigits(dueDate).slice(-8).padStart(8, "0");
-  return `3419${dueDigits}${amountDigits}${String(seed).padStart(22, "0")}`.slice(0, 44);
-}
+  for (const bill of [...remote, ...local]) {
+    const key = bill.bill_code || String(bill.id);
+    if (!merged.has(key)) {
+      merged.set(key, bill);
+    }
+  }
 
-function makeDigitableLine(seed: number, amount: number, dueDate: string) {
-  const barcode = makeBarcode(seed, amount, dueDate);
-  return `${barcode.slice(0, 5)}.${barcode.slice(5, 10)} ${barcode.slice(10, 15)}.${barcode.slice(15, 21)} ${barcode.slice(21, 26)}.${barcode.slice(26, 32)} ${barcode.slice(32, 33)} ${barcode.slice(33, 47)}`.trim();
-}
-
-async function listFinanceEntriesFromSupabase(filters?: {
-  type?: FinanceEntryType;
-  status?: string;
-  category?: string;
-  unit?: string;
-  dateFrom?: string;
-  dateTo?: string;
-}) {
-  let query = supabase
-    .from("finance_entries")
-    .select("id, type, identifier, description, amount, reference_date, due_date, counterparty, unit, resident, category, payment_method, status, document_name, notes, created_at")
-    .order("reference_date", { ascending: false })
-    .order("created_at", { ascending: false });
-
-  if (filters?.type) query = query.eq("type", filters.type);
-  if (filters?.status) query = query.ilike("status", `%${filters.status}%`);
-  if (filters?.category) query = query.ilike("category", `%${filters.category}%`);
-  if (filters?.unit) query = query.ilike("unit", `%${filters.unit}%`);
-  if (filters?.dateFrom) query = query.gte("reference_date", filters.dateFrom);
-  if (filters?.dateTo) query = query.lte("reference_date", filters.dateTo);
-
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return ((data ?? []) as FinanceEntry[]).map(mapEntry);
-}
-
-async function listFinanceBillsFromSupabase(filters?: {
-  apartmentId?: string;
-  residentId?: string;
-  resident?: string;
-  residentEmail?: string;
-  unit?: string;
-  status?: FinanceBillStatus;
-  limit?: number;
-}) {
-  const selectColumns = "id, entry_id, bill_code, unit, resident, resident_email, competence_date, issue_date, due_date, amount, instructions, status, digitable_line, barcode, pdf_url, paid_at, created_at, updated_at";
-  let query = supabase
-    .from("finance_bills")
-    .select(selectColumns)
-    .order("due_date", { ascending: true });
-
-  if (filters?.resident) query = query.ilike("resident", `%${filters.resident}%`);
-  if (filters?.residentEmail) query = query.ilike("resident_email", filters.residentEmail);
-  if (filters?.unit) query = query.ilike("unit", `%${filters.unit}%`);
-  if (filters?.status) query = query.eq("status", filters.status);
-  query = query.limit(filters?.limit ?? 80);
-
-  const { data, error } = await query;
-  if (error) throw new Error(error.message);
-  return (data ?? [])
-    .map((row) =>
-      mapBill({
-        ...(row as Omit<FinanceBill, "amount" | "apartment_id" | "resident_id">),
-        apartment_id: null,
-        resident_id: null,
-        amount: ensureNumber(row.amount),
-      }),
-    )
-    .filter((bill) => {
-      if (filters?.apartmentId && bill.apartment_id !== filters.apartmentId) return false;
-      if (filters?.residentId && bill.resident_id !== filters.residentId) return false;
-      return true;
-    });
-}
-
-async function createFinanceBillInSupabase(payload: CreateFinanceBillPayload) {
-  const issueDate = formatDateOnly(payload.issueDate);
-  const dueDate = formatDateOnly(payload.dueDate);
-  const competenceDate = formatDateOnly(payload.competenceDate);
-  const seed = Date.now();
-  const billCode = `BOL-${competenceDate.slice(0, 7).replace("-", "")}-${String(seed).slice(-6)}`;
-  const entryIdentifier = `REC-${competenceDate.slice(0, 7).replace("-", "")}-${String(seed).slice(-6)}`;
-
-  const entryInsert = await supabase
-    .from("finance_entries")
-    .insert({
-      type: "REVENUE",
-      identifier: entryIdentifier,
-      description: `Taxa condominial ${competenceDate.slice(5, 7)}/${competenceDate.slice(0, 4)} - ${payload.unit}`,
-      amount: payload.amount,
-      reference_date: issueDate,
-      due_date: dueDate,
-      counterparty: payload.resident,
-      unit: payload.unit,
-      resident: payload.resident,
-      category: "Taxa condominial",
-      payment_method: "Boleto",
-      status: "Em aberto",
-      document_name: `${billCode}.pdf`,
-      notes: payload.instructions ?? null,
-    } as never)
-    .select("id")
-    .single();
-
-  if (entryInsert.error || !entryInsert.data) throw new Error(entryInsert.error?.message ?? "Erro ao criar lancamento.");
-
-  const billInsert = await supabase
-    .from("finance_bills")
-    .insert({
-      entry_id: entryInsert.data.id,
-      bill_code: billCode,
-      unit: payload.unit,
-      resident: payload.resident,
-      resident_email: payload.residentEmail ?? null,
-      competence_date: competenceDate,
-      issue_date: issueDate,
-      due_date: dueDate,
-      amount: payload.amount,
-      instructions: payload.instructions ?? null,
-      status: "PENDING",
-      digitable_line: makeDigitableLine(seed, payload.amount, dueDate),
-      barcode: makeBarcode(seed, payload.amount, dueDate),
-      pdf_url: `/finance/bills/${billCode}/mock-pdf`,
-    } as never)
-    .select("id, entry_id, bill_code, unit, resident, resident_email, competence_date, issue_date, due_date, amount, instructions, status, digitable_line, barcode, pdf_url, paid_at, created_at, updated_at")
-    .single();
-
-  if (billInsert.error || !billInsert.data) throw new Error(billInsert.error?.message ?? "Erro ao criar boleto.");
-  return mapBill({
-    ...(billInsert.data as Omit<FinanceBill, "amount" | "apartment_id" | "resident_id">),
-    apartment_id: payload.apartmentId ?? null,
-    resident_id: payload.residentId ?? null,
-    amount: ensureNumber(billInsert.data.amount),
+  return Array.from(merged.values()).sort((a, b) => {
+    const byDueDate = (a.due_date ?? "").localeCompare(b.due_date ?? "");
+    if (byDueDate !== 0) return byDueDate;
+    return (b.created_at ?? "").localeCompare(a.created_at ?? "");
   });
 }
 
@@ -553,43 +376,62 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function listFinanceEntries(filters?: {
-  type?: FinanceEntryType;
-  status?: string;
-  category?: string;
-  unit?: string;
-  dateFrom?: string;
-  dateTo?: string;
-}) {
+function buildLocalEntryForBill(seed: number, payload: CreateFinanceBillPayload, billCode: string): FinanceEntry {
+  const createdAt = new Date().toISOString();
+  return {
+    id: Date.now(),
+    type: "REVENUE",
+    identifier: buildEntryIdentifier(seed, payload.competenceDate),
+    description: `Taxa condominial ${formatCompetence(payload.competenceDate)} - ${payload.unit}`,
+    amount: payload.amount,
+    reference_date: payload.issueDate ?? new Date().toISOString().slice(0, 10),
+    due_date: payload.dueDate,
+    counterparty: payload.resident,
+    unit: payload.unit,
+    resident: payload.resident,
+    category: "Taxa condominial",
+    payment_method: "Boleto",
+    status: "Em aberto",
+    document_name: `${billCode}.pdf`,
+    notes: payload.instructions ?? null,
+    created_at: createdAt,
+  };
+}
+
+function buildLocalBill(seed: number, entryId: number, payload: CreateFinanceBillPayload): FinanceBill {
+  const createdAt = new Date().toISOString();
+  const billCode = buildBillCode(seed, payload.competenceDate);
+  return {
+    id: Date.now(),
+    entry_id: entryId,
+    bill_code: billCode,
+    unit: payload.unit,
+    resident: payload.resident,
+    resident_email: payload.residentEmail ?? null,
+    competence_date: payload.competenceDate,
+    issue_date: payload.issueDate ?? new Date().toISOString().slice(0, 10),
+    due_date: payload.dueDate,
+    amount: payload.amount,
+    instructions: payload.instructions ?? null,
+    status: "PENDING",
+    digitable_line: buildDigitableLine(seed, payload.amount, payload.dueDate),
+    barcode: buildBarcode(seed, payload.amount, payload.dueDate),
+    pdf_url: `/finance/bills/${billCode}/mock-pdf`,
+    paid_at: null,
+    created_at: createdAt,
+    updated_at: createdAt,
+  };
+}
+
+export async function listFinanceEntries() {
   try {
-    const params = new URLSearchParams();
-    if (filters?.type) params.set("type", filters.type);
-    if (filters?.status) params.set("status", filters.status);
-    if (filters?.category) params.set("category", filters.category);
-    if (filters?.unit) params.set("unit", filters.unit);
-    if (filters?.dateFrom) params.set("dateFrom", filters.dateFrom);
-    if (filters?.dateTo) params.set("dateTo", filters.dateTo);
-    const query = params.toString();
-    const entries = await request<FinanceEntry[]>(`/finance/entries${query ? `?${query}` : ""}`);
+    const entries = await request<FinanceEntry[]>("/finance/entries");
     const normalized = entries.map(mapEntry);
-    writeLocalEntries(normalized);
-    return normalized;
+    const merged = mergeFinanceEntries(normalized, readLocalEntries());
+    writeLocalEntries(merged);
+    return merged;
   } catch {
-    try {
-      const entries = await listFinanceEntriesFromSupabase(filters);
-      writeLocalEntries(entries);
-      return entries;
-    } catch {
-      return readLocalEntries().filter((entry) => {
-        if (filters?.type && entry.type !== filters.type) return false;
-        if (filters?.status && !entry.status.toLowerCase().includes(filters.status.toLowerCase())) return false;
-        if (filters?.category && !entry.category.toLowerCase().includes(filters.category.toLowerCase())) return false;
-        if (filters?.unit && !(entry.unit ?? "").toLowerCase().includes(filters.unit.toLowerCase())) return false;
-        if (filters?.dateFrom && entry.reference_date < filters.dateFrom) return false;
-        if (filters?.dateTo && entry.reference_date > filters.dateTo) return false;
-        return true;
-      });
-    }
+    return readLocalEntries();
   }
 }
 
@@ -623,64 +465,15 @@ export async function createFinanceEntry(payload: CreateFinanceEntryPayload) {
       status: payload.status,
       document_name: payload.documentName ?? null,
       notes: payload.notes ?? null,
-      recurrence_rule_id: payload.recurrenceRuleId ?? null,
-      competence_month: payload.competenceMonth ?? null,
-      chart_account_id: payload.chartAccountId ?? null,
-      cost_center_id: payload.costCenterId ?? null,
       created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     };
 
     writeLocalEntries([entry, ...current]);
     return entry;
-  }
-}
-
-export async function updateFinanceEntry(id: number, payload: UpdateFinanceEntryPayload) {
-  try {
-    const entry = mapEntry(
-      await request<FinanceEntry>(`/finance/entries/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(payload),
-      }),
-    );
-    const current = readLocalEntries().filter((item) => item.id !== entry.id);
-    writeLocalEntries([entry, ...current]);
-    return entry;
-  } catch {
-    const current = readLocalEntries();
-    const target = current.find((item) => item.id === id);
-    if (!target) throw new Error("Lancamento nao encontrado.");
-
-    const updated: FinanceEntry = {
-      ...target,
-      type: payload.type ?? target.type,
-      identifier: payload.identifier ?? target.identifier,
-      description: payload.description ?? target.description,
-      amount: payload.amount ?? target.amount,
-      reference_date: payload.referenceDate ?? target.reference_date,
-      due_date: payload.dueDate ?? target.due_date,
-      counterparty: payload.counterparty ?? target.counterparty,
-      unit: payload.unit ?? target.unit,
-      resident: payload.resident ?? target.resident,
-      category: payload.category ?? target.category,
-      payment_method: payload.paymentMethod ?? target.payment_method,
-      status: payload.status ?? target.status,
-      document_name: payload.documentName ?? target.document_name,
-      notes: payload.notes ?? target.notes,
-      chart_account_id: payload.chartAccountId ?? target.chart_account_id ?? null,
-      cost_center_id: payload.costCenterId ?? target.cost_center_id ?? null,
-      updated_at: new Date().toISOString(),
-    };
-
-    writeLocalEntries([updated, ...current.filter((item) => item.id !== id)]);
-    return updated;
   }
 }
 
 export async function listFinanceBills(filters?: {
-  apartmentId?: string;
-  residentId?: string;
   resident?: string;
   residentEmail?: string;
   unit?: string;
@@ -689,8 +482,6 @@ export async function listFinanceBills(filters?: {
 }) {
   try {
     const params = new URLSearchParams();
-    if (filters?.apartmentId) params.set("apartmentId", filters.apartmentId);
-    if (filters?.residentId) params.set("residentId", filters.residentId);
     if (filters?.resident) params.set("resident", filters.resident);
     if (filters?.residentEmail) params.set("residentEmail", filters.residentEmail);
     if (filters?.unit) params.set("unit", filters.unit);
@@ -700,10 +491,24 @@ export async function listFinanceBills(filters?: {
     const query = params.toString();
     const bills = await request<FinanceBill[]>(`/finance/bills${query ? `?${query}` : ""}`);
     const normalized = bills.map(mapBill);
-    writeLocalBills(normalized);
-    return normalized;
+    const merged = mergeFinanceBills(normalized, readLocalBills());
+    writeLocalBills(merged);
+    return merged.filter((bill) => {
+      if (filters?.resident && !bill.resident.toLowerCase().includes(filters.resident.toLowerCase())) return false;
+      if (filters?.residentEmail && bill.resident_email !== filters.residentEmail) return false;
+      if (filters?.unit && !bill.unit.toLowerCase().includes(filters.unit.toLowerCase())) return false;
+      if (filters?.status && bill.status !== filters.status) return false;
+      return true;
+    });
   } catch {
-    return listFinanceBillsFromSupabase(filters);
+    const bills = readLocalBills();
+    return bills.filter((bill) => {
+      if (filters?.resident && !bill.resident.toLowerCase().includes(filters.resident.toLowerCase())) return false;
+      if (filters?.residentEmail && bill.resident_email !== filters.residentEmail) return false;
+      if (filters?.unit && !bill.unit.toLowerCase().includes(filters.unit.toLowerCase())) return false;
+      if (filters?.status && bill.status !== filters.status) return false;
+      return true;
+    });
   }
 }
 
@@ -720,8 +525,12 @@ export async function createFinanceBill(payload: CreateFinanceBillPayload) {
     writeLocalBills([bill, ...current]);
     return bill;
   } catch {
-    const bill = await createFinanceBillInSupabase(payload);
-    const currentBills = readLocalBills().filter((item) => item.id !== bill.id);
+    const currentBills = readLocalBills();
+    const seed = currentBills.length + 1;
+    const billCode = buildBillCode(seed, payload.competenceDate);
+    const entry = buildLocalEntryForBill(seed, payload, billCode);
+    const bill = buildLocalBill(seed, entry.id, payload);
+    writeLocalEntries([entry, ...readLocalEntries()]);
     writeLocalBills([bill, ...currentBills]);
     return bill;
   }
@@ -777,151 +586,4 @@ export async function updateFinanceBillStatus(id: number, status: FinanceBillSta
 
     return updated;
   }
-}
-
-function currentMonthRange() {
-  const now = new Date();
-  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const start = `${month}-01`;
-  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
-  return { month, start, end };
-}
-
-function monthRange(month: string) {
-  const [year, monthPart] = month.split("-").map(Number);
-  const start = `${month}-01`;
-  const end = new Date(year, monthPart, 0).toISOString().slice(0, 10);
-  return { start, end };
-}
-
-export async function getFinanceDashboard(month?: string) {
-  try {
-    return await request<FinanceDashboard>(`/finance/dashboard${month ? `?month=${month}` : ""}`);
-  } catch {
-    const entries = readLocalEntries();
-    const bills = readLocalBills();
-    const { month: currentMonth } = currentMonthRange();
-    const selectedMonth = month && /^\d{4}-\d{2}$/.test(month) ? month : currentMonth;
-    const { start, end } = monthRange(selectedMonth);
-    const isInMonth = (date: string) => date >= start && date <= end;
-    const paidRevenue = entries
-      .filter((item) => item.type === "REVENUE" && ["Recebido", "Pago"].includes(item.status))
-      .reduce((sum, item) => sum + item.amount, 0);
-    const paidExpense = entries
-      .filter((item) => item.type === "EXPENSE" && item.status === "Pago")
-      .reduce((sum, item) => sum + item.amount, 0);
-    const monthRevenue = entries.filter((item) => item.type === "REVENUE" && isInMonth(item.reference_date)).reduce((sum, item) => sum + item.amount, 0);
-    const monthExpense = entries.filter((item) => item.type === "EXPENSE" && isInMonth(item.reference_date)).reduce((sum, item) => sum + item.amount, 0);
-    const delinquencyAmount = bills
-      .filter((bill) => bill.status === "OVERDUE" || (bill.status === "PENDING" && bill.due_date < new Date().toISOString().slice(0, 10)))
-      .reduce((sum, bill) => sum + bill.amount, 0);
-    const openEntries = entries.filter((item) => !["Recebido", "Pago", "Cancelado"].includes(item.status));
-    return {
-      month: selectedMonth,
-      periodStart: start,
-      periodEnd: end,
-      balance: paidRevenue - paidExpense,
-      monthlyRevenue: monthRevenue,
-      monthlyExpense: monthExpense,
-      delinquencyAmount,
-      openAccountsCount: openEntries.length,
-      openAccountsAmount: openEntries.reduce((sum, item) => sum + item.amount, 0),
-    };
-  }
-}
-
-export async function getFinanceDelinquency() {
-  try {
-    return await request<FinanceDelinquency>("/finance/delinquency");
-  } catch {
-    const today = new Date().toISOString().slice(0, 10);
-    const units = readLocalBills()
-      .filter((bill) => bill.status === "OVERDUE" || (bill.status === "PENDING" && bill.due_date < today))
-      .map((bill) => {
-        const days = Math.max(0, Math.ceil((new Date(`${today}T00:00:00`).getTime() - new Date(`${bill.due_date}T00:00:00`).getTime()) / 86400000));
-        return { ...bill, days_overdue: days };
-      });
-    return {
-      totalAmount: units.reduce((sum, item) => sum + item.amount, 0),
-      totalUnits: units.length,
-      units,
-    };
-  }
-}
-
-export async function getFinanceCashFlow(filters?: { from?: string; to?: string }) {
-  const params = new URLSearchParams();
-  if (filters?.from) params.set("from", filters.from);
-  if (filters?.to) params.set("to", filters.to);
-  try {
-    return await request<FinanceCashFlow>(`/finance/cash-flow${params.toString() ? `?${params.toString()}` : ""}`);
-  } catch {
-    const entries = readLocalEntries();
-    const bucket = new Map<string, FinanceCashFlowPoint>();
-    for (const entry of entries) {
-      const period = entry.reference_date.slice(0, 7);
-      const current = bucket.get(period) ?? { period, revenues: 0, expenses: 0, balance: 0 };
-      if (entry.type === "REVENUE") current.revenues += entry.amount;
-      if (entry.type === "EXPENSE") current.expenses += entry.amount;
-      current.balance = current.revenues - current.expenses;
-      bucket.set(period, current);
-    }
-    const points = Array.from(bucket.values()).sort((a, b) => a.period.localeCompare(b.period));
-    return { from: filters?.from ?? "", to: filters?.to ?? "", points };
-  }
-}
-
-export async function getFinanceSummaryReport(filters?: { from?: string; to?: string }) {
-  const params = new URLSearchParams();
-  if (filters?.from) params.set("from", filters.from);
-  if (filters?.to) params.set("to", filters.to);
-  try {
-    return await request<FinanceReportSummary>(`/finance/reports/summary${params.toString() ? `?${params.toString()}` : ""}`);
-  } catch {
-    const entries = readLocalEntries();
-    const byCategory = new Map<string, FinanceCategorySummary>();
-    for (const entry of entries) {
-      const key = `${entry.type}:${entry.category}`;
-      const current = byCategory.get(key) ?? { category: entry.category, type: entry.type, total: 0 };
-      current.total += entry.amount;
-      byCategory.set(key, current);
-    }
-    return { from: filters?.from ?? "", to: filters?.to ?? "", byCategory: Array.from(byCategory.values()) };
-  }
-}
-
-export async function generateRecurringEntries(month?: string) {
-  return request<{ month: string; generatedCount: number; entries: FinanceEntry[] }>("/finance/recurring-rules/generate-all", {
-    method: "POST",
-    body: JSON.stringify({ month }),
-  });
-}
-
-export async function createRecurringRule(payload: {
-  name: string;
-  type: FinanceEntryType;
-  descriptionTemplate: string;
-  amount: number;
-  category: string;
-  paymentMethod: string;
-  counterparty: string;
-  unit?: string | null;
-  resident?: string | null;
-  dayReference: number;
-  dayDue?: number | null;
-  statusOnCreate: string;
-  active?: boolean;
-}) {
-  return request("/finance/recurring-rules", {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function listFinanceChartAccounts() {
-  return request<FinanceChartAccount[]>("/finance/chart-accounts");
-}
-
-export async function listFinanceCostCenters() {
-  return request<FinanceCostCenter[]>("/finance/cost-centers");
 }
