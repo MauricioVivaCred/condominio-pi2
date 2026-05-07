@@ -17,7 +17,14 @@ import {
 } from "../../features/dashboard/utils/user-form";
 
 const inputClass =
-  "mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100";
+  "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 placeholder:text-slate-400";
+
+const roleLabel: Record<string, string> = {
+  ADMIN: "Administrador",
+  MASTER_ADMIN: "Master Admin",
+  PORTEIRO: "Portaria",
+  MORADOR: "Morador",
+};
 
 export default function Perfil() {
   const nav = useNavigate();
@@ -37,43 +44,31 @@ export default function Perfil() {
 
   const initials = useMemo(() => {
     if (!name.trim()) return "U";
-
-    return name
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0])
-      .join("")
-      .toUpperCase();
+    return name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]).join("").toUpperCase();
   }, [name]);
 
   useEffect(() => {
-    if (!user) {
-      nav("/login", { replace: true });
-    }
+    if (!user) nav("/login", { replace: true });
   }, [nav, user]);
 
   function showSuccess() {
     setSaved(true);
-    window.setTimeout(() => setSaved(false), 2000);
+    window.setTimeout(() => setSaved(false), 2500);
   }
 
   async function handleSubmit() {
     const normalizedPhone = formatPhone(phone);
     if (normalizedPhone && !isPhoneValid(normalizedPhone)) {
-      setError("Informe um telefone valido no formato (11) 99999-9999.");
+      setError("Informe um telefone válido no formato (11) 99999-9999.");
       return;
     }
-
     const normalizedCarPlate = normalizeCarPlate(carPlate);
     if (!isCarPlateValid(normalizedCarPlate)) {
-      setError("Informe uma placa valida no formato ABC-1234 ou ABC1D23.");
+      setError("Informe uma placa válida no formato ABC-1234 ou ABC1D23.");
       return;
     }
-
     setError("");
     setSaving(true);
-
     try {
       const nextUser = await saveOwnProfile({
         name: name.trim(),
@@ -82,13 +77,12 @@ export default function Perfil() {
         carPlate: normalizedCarPlate,
         petsCount: petsCount.trim() ? Number(petsCount) : 0,
       });
-
       setUser(nextUser);
       setAvatarUrl(nextUser.avatarUrl ?? "");
       setCarPlate(formatCarPlate(normalizedCarPlate));
       showSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel salvar seus dados.");
+      setError(err instanceof Error ? err.message : "Não foi possível salvar seus dados.");
     } finally {
       setSaving(false);
     }
@@ -97,17 +91,15 @@ export default function Perfil() {
   async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-
     setError("");
     setAvatarBusy(true);
-
     try {
       const nextUser = await uploadOwnProfileAvatar(file);
       setUser(nextUser);
       setAvatarUrl(nextUser.avatarUrl ?? "");
       showSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel enviar a foto.");
+      setError(err instanceof Error ? err.message : "Não foi possível enviar a foto.");
     } finally {
       setAvatarBusy(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -117,14 +109,13 @@ export default function Perfil() {
   async function handleAvatarRemove() {
     setError("");
     setAvatarBusy(true);
-
     try {
       const nextUser = await removeOwnProfileAvatar();
       setUser(nextUser);
       setAvatarUrl("");
       showSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Nao foi possivel remover a foto.");
+      setError(err instanceof Error ? err.message : "Não foi possível remover a foto.");
     } finally {
       setAvatarBusy(false);
     }
@@ -134,250 +125,180 @@ export default function Perfil() {
 
   return (
     <AppLayout title="Meu perfil">
-      <div className="space-y-5">
-        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.4fr)_repeat(2,minmax(0,0.8fr))]">
-          <div className="rounded-[30px] border border-slate-900/5 bg-slate-950 p-6 text-white shadow-[0_32px_80px_-38px_rgba(15,23,42,0.8)]">
-            <div className="flex items-start gap-4">
+      <div className="mx-auto max-w-2xl space-y-6">
+
+        {/* Hero card */}
+        <div className="relative overflow-hidden rounded-2xl bg-slate-950 px-6 py-6 text-white shadow-xl">
+          {/* subtle gradient blob */}
+          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-indigo-600/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-12 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-sky-500/10 blur-2xl" />
+
+          <div className="relative flex items-center gap-5">
+            {/* avatar */}
+            <div className="relative shrink-0">
               {avatarUrl ? (
-                <img src={avatarUrl} alt={name || user.name} className="h-16 w-16 rounded-[24px] object-cover" />
+                <img src={avatarUrl} alt={name} className="h-20 w-20 rounded-2xl object-cover ring-2 ring-white/10" />
               ) : (
-                <div className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-white/10 text-xl font-black tracking-[-0.04em]">
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 text-2xl font-black tracking-tight ring-2 ring-white/10">
                   {initials}
                 </div>
               )}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={avatarBusy}
+                title="Alterar foto"
+                className="absolute -bottom-2 -right-2 flex h-7 w-7 items-center justify-center rounded-full bg-indigo-500 text-white shadow-lg transition hover:bg-indigo-400 disabled:opacity-60"
+              >
+                <Camera size={13} />
+              </button>
+            </div>
 
-              <div className="min-w-0">
-                <p className="truncate text-lg font-semibold">{name || user.name}</p>
-                <p className="mt-1 truncate text-sm text-slate-300">{email || "Email nao informado"}</p>
-                <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-200">
-                  <ShieldCheck size={12} />
-                  {user.role === "ADMIN" ? "Administrador" : user.role === "PORTEIRO" ? "Portaria" : "Morador"}
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
+            {/* identity */}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xl font-bold">{name || "Sem nome"}</p>
+              <p className="mt-0.5 truncate text-sm text-slate-400">{email}</p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-sky-300">
+                  <ShieldCheck size={11} />
+                  {roleLabel[user.role ?? ""] ?? user.role}
+                </span>
+                {avatarUrl && (
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={handleAvatarRemove}
                     disabled={avatarBusy}
-                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-slate-400 transition hover:text-rose-400 disabled:opacity-60"
                   >
-                    <Camera size={14} />
-                    {avatarBusy ? "Enviando..." : avatarUrl ? "Trocar foto" : "Adicionar foto"}
+                    <Trash2 size={11} />
+                    Remover foto
                   </button>
+                )}
+              </div>
+            </div>
+          </div>
 
-                  {avatarUrl ? (
-                    <button
-                      type="button"
-                      onClick={handleAvatarRemove}
-                      disabled={avatarBusy}
-                      className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      <Trash2 size={14} />
-                      Remover
-                    </button>
-                  ) : null}
-                </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={handleAvatarChange}
+          />
+        </div>
 
+        {/* Form card */}
+        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+
+          {/* Dados principais */}
+          <div className="px-6 pt-6 pb-5">
+            <div className="mb-4 flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                <UserRound size={16} />
+              </span>
+              <p className="text-sm font-semibold text-slate-800">Dados principais</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-500">Nome completo</span>
+                <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-500">Email</span>
+                <input value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+              </label>
+            </div>
+          </div>
+
+          <div className="mx-6 border-t border-slate-100" />
+
+          {/* Contato */}
+          <div className="px-6 py-5">
+            <div className="mb-4 flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-sky-50 text-sky-600">
+                <Phone size={16} />
+              </span>
+              <p className="text-sm font-semibold text-slate-800">Contato</p>
+            </div>
+            <label className="block sm:max-w-xs">
+              <span className="mb-1.5 block text-xs font-semibold text-slate-500">Telefone / WhatsApp</span>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(formatPhone(e.target.value))}
+                placeholder="(11) 99999-0000"
+                pattern={PHONE_PATTERN}
+                title={PHONE_INPUT_TITLE}
+                inputMode="tel"
+                maxLength={15}
+                className={inputClass}
+              />
+            </label>
+          </div>
+
+          <div className="mx-6 border-t border-slate-100" />
+
+          {/* Veículo e pets */}
+          <div className="px-6 py-5">
+            <div className="mb-4 flex items-center gap-2.5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                <CarFront size={16} />
+              </span>
+              <p className="text-sm font-semibold text-slate-800">Veículo e pets</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-500">Placa do carro</span>
                 <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className="hidden"
-                  onChange={handleAvatarChange}
+                  value={carPlate}
+                  onChange={(e) => setCarPlate(formatCarPlate(e.target.value))}
+                  placeholder="ABC-1234"
+                  pattern={CAR_PLATE_PATTERN}
+                  title={CAR_PLATE_INPUT_TITLE}
+                  maxLength={8}
+                  className={inputClass}
                 />
-              </div>
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-500">
+                  <span className="inline-flex items-center gap-1"><PawPrint size={12} /> Número de pets</span>
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  value={petsCount}
+                  onChange={(e) => setPetsCount(e.target.value)}
+                  className={inputClass}
+                />
+              </label>
             </div>
           </div>
 
-          <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3 text-slate-500">
-              <Phone size={16} />
-              <span className="text-xs font-semibold uppercase tracking-[0.16em]">Telefone</span>
+          {/* Footer de ações */}
+          <div className="flex flex-col gap-3 rounded-b-2xl border-t border-slate-100 bg-slate-50/60 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-h-5 text-sm font-medium">
+              {saved && <span className="flex items-center gap-1.5 text-emerald-600"><Mail size={13} />Dados atualizados.</span>}
+              {error && <span className="text-rose-600">{error}</span>}
             </div>
-            <p className="mt-4 text-base font-semibold text-slate-900">{phone || "Nao informado"}</p>
-          </div>
-
-          <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center gap-3 text-slate-500">
-              <CarFront size={16} />
-              <span className="text-xs font-semibold uppercase tracking-[0.16em]">Placa</span>
-            </div>
-            <p className="mt-4 text-base font-semibold text-slate-900">{carPlate || "Nao informada"}</p>
-          </div>
-        </section>
-
-        <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_320px]">
-          <div className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="space-y-6">
-              <div className="rounded-[26px] border border-slate-100 bg-slate-50 p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700">
-                    <UserRound size={18} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Dados principais</p>
-                    <p className="text-xs text-slate-500">Nome e email do cadastro.</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <label className="block">
-                    <span className="text-xs font-semibold text-slate-600">Nome completo</span>
-                    <input value={name} onChange={(event) => setName(event.target.value)} className={inputClass} />
-                  </label>
-
-                  <label className="block">
-                    <span className="text-xs font-semibold text-slate-600">Email</span>
-                    <input value={email} onChange={(event) => setEmail(event.target.value)} className={inputClass} />
-                  </label>
-                </div>
-              </div>
-
-              <div className="rounded-[26px] border border-slate-100 bg-slate-50 p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
-                    <Phone size={18} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Contato</p>
-                    <p className="text-xs text-slate-500">Informacoes para avisos e comunicacao.</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <label className="block">
-                    <span className="text-xs font-semibold text-slate-600">Telefone</span>
-                    <input
-                      value={phone}
-                      onChange={(event) => setPhone(formatPhone(event.target.value))}
-                      placeholder="(11) 99999-0000"
-                      pattern={PHONE_PATTERN}
-                      title={PHONE_INPUT_TITLE}
-                      inputMode="tel"
-                      maxLength={15}
-                      className={inputClass}
-                    />
-                  </label>
-
-                  <div className="rounded-[24px] border border-slate-100 bg-white p-4">
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <Mail size={16} />
-                      <span className="text-xs font-semibold uppercase tracking-[0.16em]">Canal principal</span>
-                    </div>
-                    <p className="mt-3 text-sm leading-6 text-slate-600">
-                      Mantenha telefone e email atualizados para receber avisos e facilitar o contato da administracao.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="rounded-[26px] border border-slate-100 bg-slate-50 p-4">
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-                    <CarFront size={18} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Veiculo e pets</p>
-                    <p className="text-xs text-slate-500">Dados complementares do morador.</p>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 lg:grid-cols-2">
-                  <label className="block">
-                    <span className="text-xs font-semibold text-slate-600">Placa do carro</span>
-                    <input
-                      value={carPlate}
-                      onChange={(event) => setCarPlate(formatCarPlate(event.target.value))}
-                      placeholder="ABC-1234"
-                      pattern={CAR_PLATE_PATTERN}
-                      title={CAR_PLATE_INPUT_TITLE}
-                      maxLength={8}
-                      className={inputClass}
-                    />
-                  </label>
-
-                  <label className="block">
-                    <span className="text-xs font-semibold text-slate-600">Numero de pets</span>
-                    <input
-                      type="number"
-                      min={0}
-                      value={petsCount}
-                      onChange={(event) => setPetsCount(event.target.value)}
-                      className={inputClass}
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-8 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-h-6">
-                {saved ? <span className="text-sm font-medium text-emerald-700">Dados atualizados com sucesso.</span> : null}
-                {error ? <span className="text-sm font-medium text-rose-600">{error}</span> : null}
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => nav(-1)}
-                  className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                >
-                  Voltar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={saving}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Save size={16} />
-                  {saving ? "Salvando..." : "Salvar alteracoes"}
-                </button>
-              </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => nav(-1)}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Voltar
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 disabled:opacity-60"
+              >
+                <Save size={15} />
+                {saving ? "Salvando..." : "Salvar"}
+              </button>
             </div>
           </div>
-
-          <aside className="space-y-4">
-            <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="m-0 text-base font-semibold text-slate-900">Resumo rapido</h3>
-              <div className="mt-4 space-y-3">
-                {[
-                  { icon: Mail, label: "Email", value: email || "Nao informado" },
-                  { icon: Phone, label: "Telefone", value: phone || "Nao informado" },
-                  { icon: CarFront, label: "Placa", value: carPlate || "Nao informada" },
-                  { icon: PawPrint, label: "Pets", value: petsCount || "0" },
-                ].map((item) => {
-                  const Icon = item.icon;
-
-                  return (
-                    <div key={item.label} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <Icon size={15} />
-                        <span className="text-xs font-semibold uppercase tracking-[0.16em]">{item.label}</span>
-                      </div>
-                      <p className="mt-3 text-sm font-semibold text-slate-900">{item.value}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
-              <h3 className="m-0 text-base font-semibold text-slate-900">Lembretes</h3>
-              <div className="mt-4 space-y-3">
-                {[
-                  "A foto de perfil ajuda a identificar rapidamente o usuario no sistema.",
-                  "Use imagens JPG, PNG ou WEBP com ate 5 MB.",
-                  "Mantenha telefone e placa atualizados para facilitar atendimento e acesso.",
-                ].map((tip) => (
-                  <div key={tip} className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-600">
-                    {tip}
-                  </div>
-                ))}
-              </div>
-            </section>
-          </aside>
-        </section>
+        </div>
       </div>
     </AppLayout>
   );
