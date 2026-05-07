@@ -359,6 +359,7 @@ export default function CondominiosPage() {
                   <tr className="border-b border-gray-100 bg-gray-50/60">
                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">Mapa</th>
                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">Nome</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">Plano</th>
                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">CNPJ</th>
                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">Síndico</th>
                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-gray-400">Status</th>
@@ -390,6 +391,15 @@ export default function CondominiosPage() {
                           <p className="font-semibold text-gray-900">{c.name}</p>
                           {subtitle && (
                             <p className="mt-0.5 text-[11px] text-gray-400">{subtitle}</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {c.plan ? (
+                            <span className="inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-indigo-50 text-indigo-600">
+                              {PLANS.find((p) => p.id === c.plan)?.name ?? c.plan}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
                           )}
                         </td>
                         <td className="px-4 py-3 font-mono text-gray-500">{c.cnpj || "—"}</td>
