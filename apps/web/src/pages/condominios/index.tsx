@@ -548,7 +548,7 @@ export default function CondominiosPage() {
                           <option value="" disabled>Selecione...</option>
                           {PLANS.map((p) => (
                             <option key={p.id} value={p.id}>
-                              {p.name} — {p.price}
+                              {p.name}
                             </option>
                           ))}
                         </select>
