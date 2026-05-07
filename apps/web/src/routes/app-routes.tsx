@@ -1,26 +1,26 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Login from "../pages/login.tsx";
-import Landing from "../pages/landing.tsx";
-import Precos from "../pages/precos.tsx";
-import SelectCondominium from "../pages/select-condominium.tsx";
-import ChatPage from "../pages/chat";
-import Dashboard from "../pages/dashboard.tsx";
-import ResetPassword from "../pages/reset-password.tsx";
-import ListaOcorrencias from "../pages/ocorrencias/lista-ocorrencias.tsx";
+import Landing from "../pages/landing/index.tsx";
+import Precos from "../pages/precos/index.tsx";
+import Login from "../pages/login/index.tsx";
+import SelectCondominium from "../pages/select-condominium/index.tsx";
+import ResetPassword from "../pages/reset-password/index.tsx";
+import Dashboard from "../pages/dashboard/index.tsx";
 import ListaAvisos from "../pages/avisos/lista-avisos.tsx";
+import ListaOcorrencias from "../pages/ocorrencias/lista-ocorrencias.tsx";
 import MapaPredio from "../pages/predio/mapa-predio";
-import Agendamentos from "../pages/agendamentos";
-import EnquetesPage from "../pages/enquetes";
-import EncomendasPage from "../pages/encomendas";
-import FinanceiroPage from "../pages/financeiro";
-import GaragemPage from "../pages/garagem";
-import MaresiaPage from "../pages/maresia";
-import Perfil from "../pages/perfil";
-import UsuariosPage from "../pages/usuarios";
-import VisitantesPage from "../pages/visitantes";
-import VisitorApprovalPage from "../pages/visitantes-aprovacao";
-import VisitorAccessCardPage from "../pages/visitantes-cartao";
-import CondominiosPage from "../pages/condominios";
+import ChatPage from "../pages/chat/index.tsx";
+import Agendamentos from "../pages/agendamentos/index.tsx";
+import EnquetesPage from "../pages/enquetes/index.tsx";
+import EncomendasPage from "../pages/encomendas/index.tsx";
+import FinanceiroPage from "../pages/financeiro/index.tsx";
+import GaragemPage from "../pages/garagem/index.tsx";
+import MaresiaPage from "../pages/maresia/index.tsx";
+import Perfil from "../pages/perfil/index.tsx";
+import UsuariosPage from "../pages/usuarios/index.tsx";
+import VisitantesPage from "../pages/visitantes/index.tsx";
+import VisitorApprovalPage from "../pages/visitantes/aprovacao.tsx";
+import VisitorAccessCardPage from "../pages/visitantes/cartao.tsx";
+import CondominiosPage from "../pages/condominios/index.tsx";
 import ProtectedRoute from "./protected-route";
 
 export default function AppRoutes() {
@@ -34,129 +34,22 @@ export default function AppRoutes() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/visitantes/aprovacao" element={<VisitorApprovalPage />} />
         <Route path="/visitantes/cartao" element={<VisitorAccessCardPage />} />
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/avisos"
-          element={
-            <ProtectedRoute>
-              <ListaAvisos />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/chat"
-          element={
-            <ProtectedRoute>
-              <ChatPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/enquetes"
-          element={
-            <ProtectedRoute>
-              <EnquetesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/ocorrencias"
-          element={
-            <ProtectedRoute>
-              <ListaOcorrencias />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/agendamentos"
-          element={
-            <ProtectedRoute>
-              <Agendamentos />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/visitantes"
-          element={
-            <ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "PORTEIRO"]}>
-              <VisitantesPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/encomendas"
-          element={
-            <ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "PORTEIRO"]}>
-              <EncomendasPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/financeiro"
-          element={
-            <ProtectedRoute allowedRoles={["ADMIN", "MORADOR"]}>
-              <FinanceiroPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/garagem"
-          element={
-            <ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "PORTEIRO"]}>
-              <GaragemPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/perfil"
-          element={
-            <ProtectedRoute>
-              <Perfil />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/predio"
-          element={
-            <ProtectedRoute adminOnly>
-              <MapaPredio />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/usuarios"
-          element={
-            <ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "MASTER_ADMIN"]}>
-              <UsuariosPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/manutencao"
-          element={
-            <ProtectedRoute>
-              <MaresiaPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/avisos" element={<ProtectedRoute><ListaAvisos /></ProtectedRoute>} />
+        <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+        <Route path="/enquetes" element={<ProtectedRoute><EnquetesPage /></ProtectedRoute>} />
+        <Route path="/ocorrencias" element={<ProtectedRoute><ListaOcorrencias /></ProtectedRoute>} />
+        <Route path="/agendamentos" element={<ProtectedRoute><Agendamentos /></ProtectedRoute>} />
+        <Route path="/visitantes" element={<ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "PORTEIRO"]}><VisitantesPage /></ProtectedRoute>} />
+        <Route path="/encomendas" element={<ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "PORTEIRO"]}><EncomendasPage /></ProtectedRoute>} />
+        <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["ADMIN", "MORADOR"]}><FinanceiroPage /></ProtectedRoute>} />
+        <Route path="/garagem" element={<ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "PORTEIRO"]}><GaragemPage /></ProtectedRoute>} />
+        <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
+        <Route path="/predio" element={<ProtectedRoute adminOnly><MapaPredio /></ProtectedRoute>} />
+        <Route path="/usuarios" element={<ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "MASTER_ADMIN"]}><UsuariosPage /></ProtectedRoute>} />
+        <Route path="/manutencao" element={<ProtectedRoute><MaresiaPage /></ProtectedRoute>} />
         <Route path="/maresia" element={<Navigate to="/manutencao" replace />} />
-        <Route
-          path="/condominios"
-          element={
-            <ProtectedRoute allowedRoles={["MASTER_ADMIN"]}>
-              <CondominiosPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/condominios" element={<ProtectedRoute allowedRoles={["MASTER_ADMIN"]}><CondominiosPage /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
