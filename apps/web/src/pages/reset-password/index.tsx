@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
-import { supabase } from "../lib/supabase";
-import { updatePassword } from "../features/auth/services/auth";
-import loginBg from "../assets/login.jpg";
+import { supabase } from "../../lib/supabase";
+import { updatePassword } from "../../features/auth/services/auth";
+import loginBg from "../../assets/login.jpg";
 
 export default function ResetPassword() {
   const nav = useNavigate();

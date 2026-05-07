@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CalendarRange, CheckCircle2, Plus, RefreshCw, Repeat, Wallet } from "lucide-react";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import AppLayout from "../features/layout/components/app-layout";
+import AppLayout from "../../features/layout/components/app-layout";
 import {
   createFinanceBill,
   createFinanceEntry,
@@ -22,10 +22,10 @@ import {
   type FinanceCostCenter,
   type FinanceEntry,
   type FinanceEntryType,
-} from "../features/financeiro/services/financeiro";
-import { getUser } from "../features/auth/services/auth";
-import { listUsers } from "../features/dashboard/services/users";
-import { fetchBuilding, getMockBuilding, listBuildingApartmentOptions, type Floor } from "../features/predio/services/predio";
+} from "../../features/financeiro/services/financeiro";
+import { getUser } from "../../features/auth/services/auth";
+import { listUsers } from "../../features/dashboard/services/users";
+import { fetchBuilding, getMockBuilding, listBuildingApartmentOptions, type Floor } from "../../features/predio/services/predio";
 
 type ModalType = "entry" | "bill" | "recurring" | null;
 type UnitChoice = { unit: string; tower: string; resident: string; email: string; residentId?: string | null; apartmentId?: string | null };

@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarCheck, ChevronLeft, ChevronRight, Droplet, Users, X } from "lucide-react";
-import AppLayout from "../features/layout/components/app-layout";
-import { getUser } from "../features/auth/services/auth";
+import AppLayout from "../../features/layout/components/app-layout";
+import { getUser } from "../../features/auth/services/auth";
 import {
   cancelResourceBooking,
   createResourceBooking,
   listResourceBookings,
   subscribeToResourceBookings,
   type ResourceBooking,
-} from "../features/agendamentos/services/agendamentos";
+} from "../../features/agendamentos/services/agendamentos";
 
 type Resource = {
   id: string;

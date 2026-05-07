@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { BadgeCheck, LoaderCircle, QrCode } from "lucide-react";
-import { approveVisitorByToken } from "../features/visitors/services/visitors";
+import { approveVisitorByToken } from "../../features/visitors/services/visitors";
 
 export default function VisitorApprovalPage() {
   const [searchParams] = useSearchParams();

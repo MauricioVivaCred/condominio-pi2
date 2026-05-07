@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import AppLayout from "../features/layout/components/app-layout";
-import { getUser } from "../features/auth/services/auth";
-import { canAddResident, getPlanLimits, PLAN_LABELS, type PlanId } from "../config/plans";
-import { supabase } from "../lib/supabase";
+import AppLayout from "../../features/layout/components/app-layout";
+import { getUser } from "../../features/auth/services/auth";
+import { canAddResident, getPlanLimits, PLAN_LABELS, type PlanId } from "../../config/plans";
+import { supabase } from "../../lib/supabase";
 import {
   createUser,
   deleteUserRecord,
@@ -12,8 +12,8 @@ import {
   type CreateUserPayload,
   type UpdateUserPayload,
   type UserRecord,
-} from "../features/dashboard/services/users";
-import { listBuildingApartmentOptions, type BuildingApartmentOption } from "../features/predio/services/predio";
+} from "../../features/dashboard/services/users";
+import { listBuildingApartmentOptions, type BuildingApartmentOption } from "../../features/predio/services/predio";
 import {
   CAR_PLATE_INPUT_TITLE,
   CAR_PLATE_PATTERN,
@@ -26,7 +26,7 @@ import {
   PHONE_PATTERN,
   RESIDENT_TYPE_LABEL,
   USER_STATUS_LABEL,
-} from "../features/dashboard/utils/user-form";
+} from "../../features/dashboard/utils/user-form";
 
 type UserFormState = CreateUserPayload;
 

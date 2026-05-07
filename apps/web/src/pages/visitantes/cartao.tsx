@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, LoaderCircle, QrCode } from "lucide-react";
 import { Link, useSearchParams } from "react-router-dom";
-import { fetchVisitorAccessCard } from "../features/visitors/services/visitors";
+import { fetchVisitorAccessCard } from "../../features/visitors/services/visitors";
 
 type AccessCardState =
   | { status: "loading"; message: string }

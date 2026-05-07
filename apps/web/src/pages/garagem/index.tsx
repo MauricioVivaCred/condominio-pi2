@@ -14,12 +14,12 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { getUser } from "../features/auth/services/auth";
-import AppLayout from "../features/layout/components/app-layout";
-import { listBuildingApartmentOptions, type BuildingApartmentOption } from "../features/predio/services/predio";
-import { buildSeedState } from "../features/garage/mock";
-import { appendHistory, readGarageState, saveGarageState } from "../features/garage/storage";
-import { getSupabaseAdmin, supabase } from "../lib/supabase";
+import { getUser } from "../../features/auth/services/auth";
+import AppLayout from "../../features/layout/components/app-layout";
+import { listBuildingApartmentOptions, type BuildingApartmentOption } from "../../features/predio/services/predio";
+import { buildSeedState } from "../../features/garage/mock";
+import { appendHistory, readGarageState, saveGarageState } from "../../features/garage/storage";
+import { getSupabaseAdmin, supabase } from "../../lib/supabase";
 import type {
   GarageSpot,
   GarageSpotStatus,
@@ -28,7 +28,7 @@ import type {
   TemporaryReservation,
   TemporaryReservationStatus,
   WaitingListEntry,
-} from "../features/garage/types";
+} from "../../features/garage/types";
 const inputClass = "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100";
 const modalShell = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-6";
 const modalPanel = "max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl";

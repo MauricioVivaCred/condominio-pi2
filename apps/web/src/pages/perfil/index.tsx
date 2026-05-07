@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { Camera, CarFront, Mail, PawPrint, Phone, Save, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import AppLayout from "../features/layout/components/app-layout";
-import { getUser } from "../features/auth/services/auth";
-import { removeOwnProfileAvatar, saveOwnProfile, uploadOwnProfileAvatar } from "../features/auth/services/profile";
+import AppLayout from "../../features/layout/components/app-layout";
+import { getUser } from "../../features/auth/services/auth";
+import { removeOwnProfileAvatar, saveOwnProfile, uploadOwnProfileAvatar } from "../../features/auth/services/profile";
 import {
   CAR_PLATE_INPUT_TITLE,
   CAR_PLATE_PATTERN,
@@ -14,7 +14,7 @@ import {
   isCarPlateValid,
   isPhoneValid,
   normalizeCarPlate,
-} from "../features/dashboard/utils/user-form";
+} from "../../features/dashboard/utils/user-form";
 
 const inputClass =
   "mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100";

@@ -12,8 +12,8 @@ import {
   Vote,
   X,
 } from "lucide-react";
-import AppLayout from "../features/layout/components/app-layout";
-import { getUser } from "../features/auth/services/auth";
+import AppLayout from "../../features/layout/components/app-layout";
+import { getUser } from "../../features/auth/services/auth";
 import {
   addPollComment,
   createPoll,
@@ -28,7 +28,7 @@ import {
   type AssemblyType,
   type Poll,
   type PollSignatureLog,
-} from "../features/enquetes/services/enquetes";
+} from "../../features/enquetes/services/enquetes";
 
 const inputClass =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100";

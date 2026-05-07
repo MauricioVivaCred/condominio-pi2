@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Mail, MapPin, Pencil, Phone, Plus, Search, X } from "lucide-react";
-import AppLayout from "../features/layout/components/app-layout";
-import { supabase } from "../lib/supabase";
+import AppLayout from "../../features/layout/components/app-layout";
+import { supabase } from "../../lib/supabase";
 
 type Condominio = {
   id: string;

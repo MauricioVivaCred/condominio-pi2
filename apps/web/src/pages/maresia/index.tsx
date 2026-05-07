@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, CalendarClock, CheckCircle2, ClipboardList, Clock3, Paperclip, Plus, ScanLine, Search, ShieldAlert, Upload, X } from "lucide-react";
-import AppLayout from "../features/layout/components/app-layout";
-import { getUser } from "../features/auth/services/auth";
+import AppLayout from "../../features/layout/components/app-layout";
+import { getUser } from "../../features/auth/services/auth";
 import {
   cancelMaintenanceOrder,
   createMaintenanceOrder,
@@ -19,7 +19,7 @@ import {
   type MaintenanceOrder,
   type MaintenancePriority,
   type MaintenanceStatus,
-} from "../features/maintenance/services/maintenance";
+} from "../../features/maintenance/services/maintenance";
 
 const inputClass = "mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100";
 const textareaClass = "mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100";

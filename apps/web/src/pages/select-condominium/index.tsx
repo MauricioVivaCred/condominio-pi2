@@ -6,7 +6,7 @@ import {
   selectCondominio,
   logout,
   type CondominioOption,
-} from "../features/auth/services/auth";
+} from "../../features/auth/services/auth";
 
 export default function SelectCondominium() {
   const nav = useNavigate();

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BellRing, CheckCircle2, Clock3, Package, PackageCheck, PlusCircle, Search, Trash2, UserRound, X } from "lucide-react";
-import AppLayout from "../features/layout/components/app-layout";
-import { getUser } from "../features/auth/services/auth";
+import AppLayout from "../../features/layout/components/app-layout";
+import { getUser } from "../../features/auth/services/auth";
 import {
   createDelivery,
   deleteDelivery,
@@ -13,7 +13,7 @@ import {
   type DeliveryApartmentOption,
   type DeliveryStatus,
   uploadDeliveryPhoto,
-} from "../features/encomendas/services/encomendas";
+} from "../../features/encomendas/services/encomendas";
 
 const inputClass =
   "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100";

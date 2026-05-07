@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MessageCircleMore, SendHorizonal, Shield, Trash2 } from "lucide-react";
-import AppLayout from "../features/layout/components/app-layout";
-import { supabase } from "../lib/supabase";
+import AppLayout from "../../features/layout/components/app-layout";
+import { supabase } from "../../lib/supabase";
 import {
   deleteChatMessage,
   listChatMessages,
   sendChatMessage,
   subscribeToChatMessages,
   type ChatMessage,
-} from "../features/chat/services/chat";
+} from "../../features/chat/services/chat";
 
 function formatTime(iso: string) {
   return new Date(iso).toLocaleString("pt-BR", {

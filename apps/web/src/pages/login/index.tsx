@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Building2, ChevronDown, Eye, EyeOff, Lock, Mail, PhoneCall, ShieldCheck } from "lucide-react";
-import { checkOAuthSession, login, finalizeSupabaseLogin, resetPassword, type CondominioOption, type PendingUser } from "../features/auth/services/auth";
-import loginBg from "../assets/login.jpg";
+import { checkOAuthSession, login, finalizeSupabaseLogin, resetPassword, type CondominioOption, type PendingUser } from "../../features/auth/services/auth";
+import loginBg from "../../assets/login.jpg";
 
 type View = "login" | "select" | "forgot" | "sent" | "inactive";
 

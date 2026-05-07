@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MailCheck, Plus, QrCode, ScanLine, ShieldCheck, Trash2, Users, X } from "lucide-react";
 import jsQR from "jsqr";
-import AppLayout from "../features/layout/components/app-layout";
-import { getUser } from "../features/auth/services/auth";
-import { listBuildingApartmentOptions, type BuildingApartmentOption } from "../features/predio/services/predio";
+import AppLayout from "../../features/layout/components/app-layout";
+import { getUser } from "../../features/auth/services/auth";
+import { listBuildingApartmentOptions, type BuildingApartmentOption } from "../../features/predio/services/predio";
 import {
   cancelVisitorRequest,
   completeVisitorCheckOut,
@@ -15,7 +15,7 @@ import {
   type VisitorGuestInput,
   type VisitorRequest,
   type VisitorRequestStatus,
-} from "../features/visitors/services/visitors";
+} from "../../features/visitors/services/visitors";
 
 const inputClass = "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100";
 const areaClass = "w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100";
