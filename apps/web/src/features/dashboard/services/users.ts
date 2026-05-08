@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getSupabaseAdmin, supabase } from "../../../lib/supabase";
+import { getSupabaseAdmin } from "../../../lib/supabase";
 import { syncApartmentAssignmentForUser } from "../../predio/services/predio";
 
 export type ResidentType = "PROPRIETARIO" | "INQUILINO" | "VISITANTE";
@@ -492,8 +492,8 @@ async function updateProfileWithFallbacks(
   throw new Error(lastError ?? "Erro ao atualizar perfil do usuário.");
 }
 
-async function getCondominioUsersIds(condominioUUID: string): Promise<string[]> {
-  const { data } = await supabase
+async function getCondominioUsersIds(admin: SupabaseClient, condominioUUID: string): Promise<string[]> {
+  const { data } = await admin
     .from("usuario_condominio")
     .select("user_id")
     .eq("condominio_id", condominioUUID)
@@ -507,7 +507,7 @@ export async function listUsers(condominioUUID?: string | null): Promise<UserRec
 
   if (!condominioUUID) return allUsers;
 
-  const userIds = await getCondominioUsersIds(condominioUUID);
+  const userIds = await getCondominioUsersIds(admin, condominioUUID);
   const idSet = new Set(userIds);
   return allUsers.filter((user) => idSet.has(user.id));
 }
