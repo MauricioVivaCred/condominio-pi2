@@ -153,7 +153,10 @@ export async function uploadAvisoAnexo(file: File): Promise<string> {
 }
 
 export async function deleteAviso(id: string): Promise<void> {
-  const { error } = await supabase.from("avisos").delete().eq("id", id);
+  const { error } = await supabase
+    .from("avisos")
+    .update({ removed: true, updated_at: new Date().toISOString() })
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 
