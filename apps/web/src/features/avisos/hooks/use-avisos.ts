@@ -41,7 +41,7 @@ export function useAvisos() {
 
   // URL-derived state
   const searchText = searchParams.get("q") ?? "";
-  const filterTipo = (searchParams.get("tipo") ?? "") as AvisoTipo | "";
+  const filterTipo = (searchParams.get("tipo") ?? "").split(",").filter(Boolean) as AvisoTipo[];
   const sortKey = (searchParams.get("sort") ?? "created_at") as AvisoSortKey;
   const sortDir = (searchParams.get("dir") ?? "desc") as "asc" | "desc";
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
@@ -122,7 +122,7 @@ export function useAvisos() {
   }
 
   function applyFilters(filters: {
-    filterTipo: AvisoTipo | "";
+    filterTipo: AvisoTipo[];
     filterExpirado: "" | "sim" | "nao";
     filterFixado: "" | "sim" | "nao";
     sortKey: AvisoSortKey;
@@ -130,7 +130,7 @@ export function useAvisos() {
   }) {
     setSearchParams((prev: URLSearchParams) => {
       const next = new URLSearchParams(prev);
-      if (filters.filterTipo) next.set("tipo", filters.filterTipo); else next.delete("tipo");
+      if (filters.filterTipo.length > 0) next.set("tipo", filters.filterTipo.join(",")); else next.delete("tipo");
       if (filters.filterExpirado) next.set("expirado", filters.filterExpirado); else next.delete("expirado");
       if (filters.filterFixado) next.set("fixado", filters.filterFixado); else next.delete("fixado");
       if (filters.sortKey !== "created_at") next.set("sort", filters.sortKey); else next.delete("sort");
@@ -142,7 +142,7 @@ export function useAvisos() {
 
   // ── Filters + Sort + Pagination ─────────────────────────────────────────
   const filtered = avisos.filter((a) => {
-    if (filterTipo && a.tipo !== filterTipo) return false;
+    if (filterTipo.length > 0 && !filterTipo.includes(a.tipo)) return false;
     if (searchText) {
       const q = searchText.toLowerCase();
       if (!a.titulo.toLowerCase().includes(q) && !a.descricao.toLowerCase().includes(q)) return false;
@@ -170,7 +170,8 @@ export function useAvisos() {
   const safePage = Math.min(page, totalPages);
   const pageItems = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
 
-  const activeFilterCount = [filterTipo, filterExpirado, filterFixado].filter(Boolean).length
+  const activeFilterCount = (filterTipo.length > 0 ? 1 : 0)
+    + [filterExpirado, filterFixado].filter(Boolean).length
     + (sortKey !== "created_at" || sortDir !== "desc" ? 1 : 0);
 
   // ── Handlers ────────────────────────────────────────────────────────────

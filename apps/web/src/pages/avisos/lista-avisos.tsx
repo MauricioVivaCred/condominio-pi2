@@ -54,7 +54,7 @@ function SortTh({ col, label, sortKey, sortDir, onSort }: {
 
 // ── Filter Panel ─────────────────────────────────────────────────────────────
 type FilterDraft = {
-  filterTipo: AvisoTipo | "";
+  filterTipo: AvisoTipo[];
   filterExpirado: "" | "sim" | "nao";
   filterFixado: "" | "sim" | "nao";
   sortKey: SortKey;
@@ -123,24 +123,18 @@ function FilterPanel({ open, onClose, initial, onApply }: {
           <div>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Tipo</p>
             <div className="space-y-1.5">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="tipo"
-                  checked={draft.filterTipo === ""}
-                  onChange={() => setDraft((d) => ({ ...d, filterTipo: "" }))}
-                  className="accent-indigo-600"
-                />
-                <span className="text-sm text-gray-700">Todos</span>
-              </label>
               {AVISO_TIPOS.map((t) => (
                 <label key={t} className="flex items-center gap-2 cursor-pointer">
                   <input
-                    type="radio"
-                    name="tipo"
-                    checked={draft.filterTipo === t}
-                    onChange={() => setDraft((d) => ({ ...d, filterTipo: t }))}
-                    className="accent-indigo-600"
+                    type="checkbox"
+                    checked={draft.filterTipo.includes(t)}
+                    onChange={() => setDraft((d) => ({
+                      ...d,
+                      filterTipo: d.filterTipo.includes(t)
+                        ? d.filterTipo.filter((x) => x !== t)
+                        : [...d.filterTipo, t],
+                    }))}
+                    className="accent-indigo-600 w-4 h-4"
                   />
                   <span className="text-sm text-gray-700">{t}</span>
                 </label>
@@ -343,7 +337,7 @@ export default function ListaAvisos() {
                 placeholder="Buscar..."
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
-                className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl bg-white text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-400 w-52 transition-colors"
+                className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl bg-white text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-400 w-80 transition-colors"
               />
               {searchText && (
                 <button
