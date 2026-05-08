@@ -562,16 +562,10 @@ export async function listCondominiosBasic(): Promise<CondominioBrief[]> {
 export async function inviteUser(payload: InviteUserPayload): Promise<void> {
   const admin = getSupabaseAdmin();
   const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin;
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-  // generateLink cria o usuário e devolve o magic link sem enviar e-mail padrão
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: "invite",
-    email: payload.email,
-    options: {
-      redirectTo: `${appUrl}/completar-perfil`,
-      data: { role: payload.role, resident_type: payload.residentType },
-    },
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(payload.email, {
+    redirectTo: `${appUrl}/completar-perfil`,
+    data: { role: payload.role, resident_type: payload.residentType },
   });
 
   if (error) {
@@ -582,7 +576,6 @@ export async function inviteUser(payload: InviteUserPayload): Promise<void> {
   }
 
   const userId = data.user.id;
-  const inviteUrl = (data.properties as { action_link: string }).action_link;
 
   // Cria perfil mínimo imediatamente
   await admin.from("profiles").upsert({
@@ -596,7 +589,6 @@ export async function inviteUser(payload: InviteUserPayload): Promise<void> {
   } as never);
 
   // Vincula ao condomínio
-  let condominioName: string | undefined;
   if (payload.condominioId) {
     await admin.from("usuario_condominio").upsert({
       user_id: userId,
@@ -604,25 +596,12 @@ export async function inviteUser(payload: InviteUserPayload): Promise<void> {
       active: true,
       role: payload.role,
     } as never);
-    const { data: cond } = await admin.from("condominios").select("name").eq("id", payload.condominioId).single();
-    condominioName = (cond as { name: string } | null)?.name;
   }
 
   // Vincula ao apartamento se informado
   if (payload.apartmentId) {
     await syncApartmentAssignmentForUser(userId, payload.apartmentId);
   }
-
-  // Envia e-mail personalizado via Edge Function (Resend)
-  const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-  await fetch(`${supabaseUrl}/functions/v1/send-invite-email`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${serviceRoleKey}`,
-    },
-    body: JSON.stringify({ to: payload.email, inviteUrl, role: payload.role, condominioName }),
-  });
 }
 
 export async function updateUserRecord(payload: UpdateUserPayload): Promise<UserRecord> {
