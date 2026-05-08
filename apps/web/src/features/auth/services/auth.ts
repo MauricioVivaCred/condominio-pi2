@@ -144,7 +144,7 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
   const [profileResult, ucResult] = await Promise.all([
     supabase
       .from("profiles")
-      .select("name, role, phone, car_plate, pets_count, resident_type, status, avatar_url")
+      .select("name, role, phone, car_plate, pets_count, resident_type, status, removed, avatar_url")
       .eq("id", data.user.id)
       .single(),
     supabase
@@ -154,9 +154,15 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
       .eq("active", true),
   ]);
 
-  const profile = profileResult.data;
+  const profile = profileResult.data as (typeof profileResult.data & { removed?: boolean }) | null;
   type UcRow = { condominio_id: string; role: string };
   const ucRows = (ucResult.data ?? []) as UcRow[];
+
+  // Bloqueia login de usuários desabilitados
+  if (profile?.removed === true) {
+    await supabase.auth.signOut();
+    throw new Error("Usuário desabilitado. Entre em contato com o administrador.");
+  }
 
   localStorage.setItem("token", data.session.access_token);
 
@@ -309,7 +315,7 @@ export async function checkOAuthSession(): Promise<User | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("name, role, phone, car_plate, pets_count, resident_type, status, avatar_url")
+    .select("name, role, phone, car_plate, pets_count, resident_type, status, removed, avatar_url")
     .eq("id", session.user.id)
     .single();
 

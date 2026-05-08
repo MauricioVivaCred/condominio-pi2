@@ -21,6 +21,7 @@ import VisitantesPage from "../pages/visitantes/index.tsx";
 import VisitorApprovalPage from "../pages/visitantes/aprovacao.tsx";
 import VisitorAccessCardPage from "../pages/visitantes/cartao.tsx";
 import CondominiosPage from "../pages/condominios/index.tsx";
+import CompletarPerfil from "../pages/completar-perfil/index.tsx";
 import ProtectedRoute from "./protected-route";
 
 export default function AppRoutes() {
@@ -32,6 +33,7 @@ export default function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/select-condominium" element={<SelectCondominium />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/completar-perfil" element={<CompletarPerfil />} />
         <Route path="/visitantes/aprovacao" element={<VisitorApprovalPage />} />
         <Route path="/visitantes/cartao" element={<VisitorAccessCardPage />} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
