@@ -6,7 +6,7 @@ Central de comunicados do condomínio. Disponível para todos os roles.
 
 ## Fluxo
 
-1. Busca avisos filtrados pelo `condominioUUID` do usuário logado (somente `removed = false`).
+1. Busca o `condominioUUID` do usuário direto na tabela `usuario_condominio` e filtra os avisos por ele (somente `removed = false`).
 2. ADMIN pode criar, editar e excluir avisos.
 3. MORADOR e PORTEIRO visualizam em modo leitura.
 
@@ -108,7 +108,7 @@ Avisos com `data_expiracao < hoje` são automaticamente arquivados pelo job `exp
 
 ## Peculiaridades
 
-- O `condominioUUID` é lido do `localStorage` via `getUser()`. Se não estiver disponível, busca na tabela `usuario_condominio`.
+- O `condominioUUID` é sempre buscado diretamente na tabela `usuario_condominio` (filtrando `user_id` e `active = true`). Não usa `localStorage`.
 - Avisos aparecem no painel de notificações (sino no header) como não lidos até o usuário marcar como lido.
 - Avisos com 3+ curtidas recebem destaque visual (fundo âmbar + ponto âmbar no título).
 - Fixados sobem sempre ao topo independentemente da ordenação escolhida.
