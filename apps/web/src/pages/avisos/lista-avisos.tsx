@@ -82,7 +82,7 @@ function FilterPanel({ open, onClose, initial, onApply }: {
 
   function apply() { onApply(draft); onClose(); }
   function clear() {
-    setDraft({ filterTipo: "", filterExpirado: "", filterFixado: "", sortKey: "created_at", sortDir: "desc" });
+    setDraft({ filterTipo: [], filterExpirado: "", filterFixado: "", sortKey: "created_at", sortDir: "desc" });
   }
 
   const SORT_OPTIONS: { key: SortKey; label: string }[] = [
