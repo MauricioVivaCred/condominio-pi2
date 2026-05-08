@@ -885,7 +885,7 @@ export default function DashboardAdmin() {
                 <select
                   id="u-resident-type"
                   value={form.residentType}
-                  onChange={(e) => setForm({ ...form, residentType: e.target.value as CreateUserPayload["residentType"] })}
+                  onChange={(e) => setForm({ ...form, residentType: e.target.value as UpdateUserPayload["residentType"] })}
                   className={inputCls}
                 >
                   <option value="PROPRIETARIO">Proprietário</option>
@@ -899,7 +899,7 @@ export default function DashboardAdmin() {
                 <select
                   id="u-status"
                   value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value as CreateUserPayload["status"] })}
+                  onChange={(e) => setForm({ ...form, status: e.target.value as UpdateUserPayload["status"] })}
                   className={inputCls}
                 >
                   <option value="ATIVO">Ativo</option>
