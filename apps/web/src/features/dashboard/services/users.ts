@@ -561,12 +561,16 @@ export async function listCondominiosBasic(): Promise<CondominioBrief[]> {
 
 export async function inviteUser(payload: InviteUserPayload): Promise<void> {
   const admin = getSupabaseAdmin();
+  const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(payload.email, {
-    redirectTo: `${window.location.origin}/completar-perfil`,
-    data: {
-      role: payload.role,
-      resident_type: payload.residentType,
+  // generateLink cria o usuário e devolve o magic link sem enviar e-mail padrão
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "invite",
+    email: payload.email,
+    options: {
+      redirectTo: `${appUrl}/completar-perfil`,
+      data: { role: payload.role, resident_type: payload.residentType },
     },
   });
 
@@ -577,9 +581,12 @@ export async function inviteUser(payload: InviteUserPayload): Promise<void> {
     throw new Error(error.message);
   }
 
+  const userId = data.user.id;
+  const inviteUrl = (data.properties as { action_link: string }).action_link;
+
   // Cria perfil mínimo imediatamente
   await admin.from("profiles").upsert({
-    id: data.user.id,
+    id: userId,
     name: "",
     email: payload.email,
     role: payload.role,
@@ -589,19 +596,33 @@ export async function inviteUser(payload: InviteUserPayload): Promise<void> {
   } as never);
 
   // Vincula ao condomínio
+  let condominioName: string | undefined;
   if (payload.condominioId) {
     await admin.from("usuario_condominio").upsert({
-      user_id: data.user.id,
+      user_id: userId,
       condominio_id: payload.condominioId,
       active: true,
       role: payload.role,
     } as never);
+    const { data: cond } = await admin.from("condominios").select("name").eq("id", payload.condominioId).single();
+    condominioName = (cond as { name: string } | null)?.name;
   }
 
   // Vincula ao apartamento se informado
   if (payload.apartmentId) {
-    await syncApartmentAssignmentForUser(data.user.id, payload.apartmentId);
+    await syncApartmentAssignmentForUser(userId, payload.apartmentId);
   }
+
+  // Envia e-mail personalizado via Edge Function (Resend)
+  const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
+  await fetch(`${supabaseUrl}/functions/v1/send-invite-email`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${serviceRoleKey}`,
+    },
+    body: JSON.stringify({ to: payload.email, inviteUrl, role: payload.role, condominioName }),
+  });
 }
 
 export async function updateUserRecord(payload: UpdateUserPayload): Promise<UserRecord> {
