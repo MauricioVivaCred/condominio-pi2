@@ -15,18 +15,17 @@ import {
   Cell,
 } from "recharts";
 import AppLayout from "../../features/layout/components/app-layout";
-import { createUser, listUsers, updateUserRecord, type CreateUserPayload, type UpdateUserPayload, type UserRecord } from "../../features/dashboard/services/users";
+import { inviteUser, listUsers, updateUserRecord, type InviteUserPayload, type UpdateUserPayload, type UserRecord } from "../../features/dashboard/services/users";
 import { fetchSantosWeather, type WeatherSnapshot } from "../../features/dashboard/services/weather";
 import { listOcorrencias, type Ocorrencia } from "../../features/ocorrencias/services/ocorrencias";
 
 type Pending = { title: string; subtitle: string; tag: string; tagColor: string };
-type UserFormState = CreateUserPayload;
+type UserFormState = Omit<UpdateUserPayload, "id">;
 
-const EMPTY_FORM: CreateUserPayload = {
+const EMPTY_FORM: UserFormState = {
   name: "",
   email: "",
   phone: "",
-  password: "",
   carPlate: "",
   petsCount: null,
   role: "MORADOR",
@@ -35,13 +34,13 @@ const EMPTY_FORM: CreateUserPayload = {
   apartmentId: null,
 };
 
-const RESIDENT_TYPE_LABEL: Record<CreateUserPayload["residentType"], string> = {
+const RESIDENT_TYPE_LABEL: Record<UpdateUserPayload["residentType"], string> = {
   PROPRIETARIO: "Proprietário",
   INQUILINO: "Inquilino",
   VISITANTE: "Visitante",
 };
 
-const USER_STATUS_LABEL: Record<CreateUserPayload["status"], string> = {
+const USER_STATUS_LABEL: Record<UpdateUserPayload["status"], string> = {
   ATIVO: "Ativo",
   INATIVO: "Inativo",
 };
@@ -127,7 +126,6 @@ export default function DashboardAdmin() {
       name: user.name,
       email: user.email,
       phone: user.phone ?? "",
-      password: "",
       carPlate: user.car_plate ?? "",
       petsCount: user.pets_count ?? null,
       role: user.role,
@@ -158,7 +156,13 @@ export default function DashboardAdmin() {
           apartmentId: form.apartmentId,
         } satisfies UpdateUserPayload);
       } else {
-        await createUser(form);
+        await inviteUser({
+          email: form.email,
+          role: form.role,
+          residentType: form.residentType,
+          apartmentId: form.apartmentId,
+          condominioId: null,
+        } satisfies InviteUserPayload);
       }
       closeModal();
       loadUsers();
@@ -835,21 +839,6 @@ export default function DashboardAdmin() {
                 </div>
               ))}
 
-              {!editingUser && (
-                <div className="grid gap-1.5">
-                  <label htmlFor="u-password" className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Senha</label>
-                  <input
-                    id="u-password"
-                    type="password"
-                    placeholder="Mínimo 6 caracteres"
-                    value={form.password}
-                    onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    required
-                    minLength={6}
-                    className={inputCls}
-                  />
-                </div>
-              )}
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="grid gap-1.5">

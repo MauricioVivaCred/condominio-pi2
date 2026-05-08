@@ -3,7 +3,7 @@ import {
   ChevronLeft, ChevronRight,
   Filter, Pencil, Plus, Search, ShieldOff, ShieldCheck, Users, X,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import AppLayout from "../../features/layout/components/app-layout";
 import { getUser } from "../../features/auth/services/auth";
