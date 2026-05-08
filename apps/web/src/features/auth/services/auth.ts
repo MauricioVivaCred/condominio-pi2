@@ -166,6 +166,27 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
 
   localStorage.setItem("token", data.session.access_token);
 
+  // MASTER_ADMIN não precisa estar vinculado a nenhum condomínio
+  if (profile?.role === "MASTER_ADMIN") {
+    const user: User = {
+      id: data.user.id,
+      name: profile.name ?? data.user.email ?? "",
+      email: data.user.email ?? "",
+      phone: profile.phone ?? "",
+      role: "MASTER_ADMIN",
+      condominioId: null,
+      condominioUUID: null,
+      condominioName: undefined,
+      residentType: profile.resident_type ?? undefined,
+      status: profile.status ?? undefined,
+      carPlate: profile.car_plate ?? undefined,
+      petsCount: profile.pets_count ?? undefined,
+      avatarUrl: profile.avatar_url ?? undefined,
+    };
+    setStoredUser(user);
+    return { requiresSelection: false, user };
+  }
+
   // Busca dados dos condomínios vinculados (nome + status)
   const uuidsAll = ucRows.map((r) => r.condominio_id);
   const { data: condData } = await supabase
