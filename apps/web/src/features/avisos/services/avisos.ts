@@ -74,6 +74,7 @@ export async function listAvisos(): Promise<Aviso[]> {
 let query = supabase
     .from("avisos")
     .select("*, profiles!created_by(name)")
+    .eq("removed", false)
     .order("fixado", { ascending: false })
     .order("created_at", { ascending: false });
 
