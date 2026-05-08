@@ -62,13 +62,19 @@ function emailHtml(inviteUrl: string, role: string, condominioName?: string) {
                   </p>
 
                   <!-- CTA Button -->
-                  <table cellpadding="0" cellspacing="0" style="margin:0 0 28px;">
+                  <table cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 28px;">
                     <tr>
-                      <td style="background:linear-gradient(135deg,#6d28d9,#4f46e5);border-radius:14px;">
-                        <a href="${inviteUrl}"
-                           style="display:inline-block;padding:16px 32px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.01em;">
-                          Aceitar convite →
-                        </a>
+                      <td align="center">
+                        <table cellpadding="0" cellspacing="0">
+                          <tr>
+                            <td style="background:linear-gradient(135deg,#6d28d9,#4f46e5);border-radius:14px;">
+                              <a href="${inviteUrl}"
+                                 style="display:inline-block;padding:16px 32px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.01em;">
+                                Aceitar convite →
+                              </a>
+                            </td>
+                          </tr>
+                        </table>
                       </td>
                     </tr>
                   </table>

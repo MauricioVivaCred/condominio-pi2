@@ -251,6 +251,7 @@ export default function UsuariosPage() {
   const currentUser = useMemo(() => getUser(), []);
   const isMasterAdmin = currentUser?.role === "MASTER_ADMIN";
   const isAdmin = currentUser?.role === "ADMIN" || isMasterAdmin;
+  const isResident = currentUser?.role === "MORADOR";
 
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [condominios, setCondominios] = useState<CondominioBrief[]>([]);
@@ -518,21 +519,23 @@ export default function UsuariosPage() {
         {/* Toolbar */}
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setFilterPanelOpen(true)}
-              className={`relative flex items-center justify-center w-9 h-9 rounded-xl border cursor-pointer transition-colors ${activeFilterCount > 0 ? "bg-indigo-50 border-indigo-300 text-indigo-600" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}
-            >
-              <Filter size={15} />
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+            {!isResident && (
+              <button
+                onClick={() => setFilterPanelOpen(true)}
+                className={`relative flex items-center justify-center w-9 h-9 rounded-xl border cursor-pointer transition-colors ${activeFilterCount > 0 ? "bg-indigo-50 border-indigo-300 text-indigo-600" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}
+              >
+                <Filter size={15} />
+                {activeFilterCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </button>
+            )}
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               <input
-                type="text" placeholder="Buscar por nome, email, telefone, bloco ou placa..."
+                type="text" placeholder={isResident ? "Buscar por nome..." : "Buscar por nome, email, telefone, bloco ou placa..."}
                 value={searchText} onChange={(e) => setSearchText(e.target.value)}
                 className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl bg-white text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-400 w-80 transition-colors"
               />
@@ -577,43 +580,47 @@ export default function UsuariosPage() {
                   <tr className="bg-gray-50/80">
                     <SortTh col="name" label="Nome" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                     <SortTh col="role" label="Perfil" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-                    <th className="px-3 py-3 border-b border-gray-100 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase whitespace-nowrap">Tipo</th>
-                    <SortTh col="status" label="Status" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
-                    <th className="px-3 py-3 border-b border-gray-100 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase whitespace-nowrap">Habilitado</th>
+                    {!isResident && <th className="px-3 py-3 border-b border-gray-100 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase whitespace-nowrap">Tipo</th>}
+                    {!isResident && <SortTh col="status" label="Status" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
+                    {!isResident && <th className="px-3 py-3 border-b border-gray-100 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase whitespace-nowrap">Habilitado</th>}
                     <th className="px-3 py-3 border-b border-gray-100 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase whitespace-nowrap">Unidade</th>
-                    <SortTh col="created_at" label="Cadastro" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
+                    {!isResident && <SortTh col="created_at" label="Cadastro" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
                     {isAdmin && <th className="px-3 py-3 border-b border-gray-100 text-center text-xs font-semibold tracking-wider text-gray-500 uppercase">Ações</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {pageItems.map((u, idx) => (
                     <tr key={u.id} style={{ animationDelay: `${idx * 20}ms` }}
-                      className={`transition-colors hover:bg-indigo-50/30 ${u.removed ? "opacity-50" : ""}`}>
+                      className="transition-colors hover:bg-indigo-50/30">
                       <td className="px-3 py-3 border-b border-gray-100">
                         <p className="font-medium text-gray-800">{u.name || <span className="text-gray-400 italic">Pendente</span>}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{u.email}</p>
+                        {!isResident && <p className="text-xs text-gray-400 mt-0.5">{u.email}</p>}
                       </td>
                       <td className="px-3 py-3 border-b border-gray-100">
                         <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${u.role === "ADMIN" ? "border-indigo-200 bg-indigo-50 text-indigo-600" : u.role === "PORTEIRO" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
                           {u.role === "ADMIN" ? "Administrador" : u.role === "PORTEIRO" ? "Porteiro" : "Morador"}
                         </span>
                       </td>
-                      <td className="px-3 py-3 border-b border-gray-100 text-gray-500 text-sm">{RESIDENT_TYPE_LABEL[u.resident_type]}</td>
-                      <td className="px-3 py-3 border-b border-gray-100">
-                        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${u.status === "ATIVO" ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
-                          {USER_STATUS_LABEL[u.status]}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 border-b border-gray-100">
-                        {u.removed
-                          ? <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600"><ShieldOff size={10} /> Não</span>
-                          : <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600"><ShieldCheck size={10} /> Sim</span>
-                        }
-                      </td>
+                      {!isResident && <td className="px-3 py-3 border-b border-gray-100 text-gray-500 text-sm">{RESIDENT_TYPE_LABEL[u.resident_type]}</td>}
+                      {!isResident && (
+                        <td className="px-3 py-3 border-b border-gray-100">
+                          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${u.status === "ATIVO" ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
+                            {USER_STATUS_LABEL[u.status]}
+                          </span>
+                        </td>
+                      )}
+                      {!isResident && (
+                        <td className="px-3 py-3 border-b border-gray-100">
+                          {u.removed
+                            ? <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600"><ShieldOff size={10} /> Não</span>
+                            : <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600"><ShieldCheck size={10} /> Sim</span>
+                          }
+                        </td>
+                      )}
                       <td className="px-3 py-3 border-b border-gray-100 text-gray-500 text-sm">
                         {u.apartments.length > 0 ? u.apartments.map((a) => `${a.tower} · Apto ${a.number}`).join(", ") : "—"}
                       </td>
-                      <td className="px-3 py-3 border-b border-gray-100 text-gray-400 text-sm whitespace-nowrap">{fmtDate(u.created_at)}</td>
+                      {!isResident && <td className="px-3 py-3 border-b border-gray-100 text-gray-400 text-sm whitespace-nowrap">{fmtDate(u.created_at)}</td>}
                       {isAdmin && (
                         <td className="px-3 py-3 border-b border-gray-100">
                           <div className="flex items-center justify-center gap-1.5">
@@ -644,25 +651,30 @@ export default function UsuariosPage() {
         {!loading && pageItems.length > 0 && (
           <div className="md:hidden grid gap-3">
             {pageItems.map((u) => (
-              <div key={u.id} className={`bg-white border border-gray-200 rounded-2xl p-4 shadow-sm ${u.removed ? "opacity-50" : ""}`}>
+              <div key={u.id} className={`bg-white border border-gray-200 rounded-2xl p-4 shadow-sm ${!isResident && u.removed ? "opacity-50" : ""}`}>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
                     <p className="font-semibold text-gray-800">{u.name || <span className="text-gray-400 italic text-sm">Pendente</span>}</p>
-                    <p className="text-xs text-gray-400">{u.email}</p>
+                    {!isResident && <p className="text-xs text-gray-400">{u.email}</p>}
                   </div>
-                  {u.removed
+                  {!isResident && (u.removed
                     ? <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 shrink-0"><ShieldOff size={10} /> Desabilitado</span>
                     : <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 shrink-0"><ShieldCheck size={10} /> Habilitado</span>
-                  }
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${u.role === "ADMIN" ? "border-indigo-200 bg-indigo-50 text-indigo-600" : u.role === "PORTEIRO" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
                     {u.role === "ADMIN" ? "Admin" : u.role === "PORTEIRO" ? "Porteiro" : "Morador"}
                   </span>
-                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${u.status === "ATIVO" ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
-                    {USER_STATUS_LABEL[u.status]}
-                  </span>
+                  {!isResident && (
+                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${u.status === "ATIVO" ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
+                      {USER_STATUS_LABEL[u.status]}
+                    </span>
+                  )}
                 </div>
+                {u.apartments.length > 0 && (
+                  <p className="text-xs text-gray-500 mb-3">{u.apartments.map((a) => `${a.tower} · Apto ${a.number}`).join(", ")}</p>
+                )}
                 {isAdmin && (
                   <div className="flex gap-2">
                     <button onClick={() => openEdit(u)} className="flex-1 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-indigo-200 hover:text-indigo-600 cursor-pointer transition-colors">Editar</button>
