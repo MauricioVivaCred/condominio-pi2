@@ -1,16 +1,16 @@
 ﻿
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BellRing,
   CalendarClock,
+  CarFront,
   CheckCircle2,
   Gauge,
   ParkingSquare,
   ShieldCheck,
   Sparkles,
   Users,
-  X,
 } from "lucide-react";
 import { getUser } from "../../features/auth/services/auth";
 import AppLayout from "../../features/layout/components/app-layout";
@@ -23,7 +23,11 @@ import {
   apartmentLabel,
   labelToApartment,
 } from "./utils/garage-validation";
-import { mapSpotTone, SpotCard, CompactSpotCard, type SpotTone } from "./components/spot-card";
+import { mapSpotTone, SpotCard, CompactSpotCard } from "./components/spot-card";
+import { WaitlistModal } from "./components/waitlist-modal";
+import { ReservationModal } from "./components/reservation-modal";
+import { SpotEditModal } from "./components/spot-edit-modal";
+import { inputClass } from "./utils/garage-ui";
 import { buildSeedState } from "../../features/garage/mock";
 import { appendHistory, readGarageState, saveGarageState } from "../../features/garage/storage";
 import { getSupabaseAdmin, supabase } from "../../lib/supabase";
@@ -36,11 +40,6 @@ import type {
   TemporaryReservationStatus,
   WaitingListEntry,
 } from "../../features/garage/types";
-const inputClass = "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100";
-const modalShell = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-6";
-const modalPanel = "max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl";
-const plateInputPattern = "([A-Za-z]{3}-?[0-9]{4}|[A-Za-z]{3}-?[0-9][A-Za-z][0-9]{2})";
-const plateInputTitle = "Use formato AAA1234 ou AAA1A23 (com ou sem hifen).";
 
 type Filters = { tower: string; type: GarageSpotType | "TODOS"; status: GarageSpotStatus | "TODOS"; search: string };
 type GarageMapMode = "CORREDOR" | "APERTO";
@@ -893,186 +892,42 @@ export default function GaragemPage() {
         </section>
       </div>
       {showWaitModal && (
-        <Modal onClose={() => setShowWaitModal(false)} title="Nova solicitacao" icon={<Users size={16} />}>
-          <div className="space-y-3">
-            <select value={waitForm.apartmentId ?? ""} onChange={(e) => handleWaitApartment(e.target.value)} className={inputClass}>
-              <option value="">Selecione o apartamento (opcional)</option>
-              {apartmentOptions.map((apt) => (
-                <option key={apt.id} value={apt.id}>
-                  {apartmentLabel(apt)}
-                </option>
-              ))}
-            </select>
-            <input value={waitForm.residentName} onChange={(e) => setWaitForm((cur) => ({ ...cur, residentName: e.target.value }))} placeholder="Nome do morador" className={inputClass} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                value={waitForm.vehiclePlate}
-                onChange={(e) => setWaitForm((cur) => ({ ...cur, vehiclePlate: e.target.value.toUpperCase() }))}
-                placeholder="Placa"
-                className={inputClass}
-                pattern={plateInputPattern}
-                title={plateInputTitle}
-              />
-              <input value={waitForm.vehicleModel} onChange={(e) => setWaitForm((cur) => ({ ...cur, vehicleModel: e.target.value }))} placeholder="Modelo (opcional)" className={inputClass} />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-sm font-medium text-slate-700">
-                Criterio
-                <select
-                  value={waitForm.criteria}
-                  onChange={(e) => setWaitForm((cur) => ({ ...cur, criteria: e.target.value as WaitingListEntry["criteria"] }))}
-                  className={`${inputClass} mt-2`}
-                >
-                  <option value="ORDEM">Ordem de cadastro</option>
-                  <option value="PCD">Prioridade PCD</option>
-                  <option value="SORTEIO">Sorteio</option>
-                  <option value="RODIZIO">Rodizio</option>
-                  <option value="CONDUTA">Sindico/funcionario</option>
-                </select>
-              </label>
-              <label className="block text-sm font-medium text-slate-700">
-                Prioridade (1 = alta)
-                <input type="number" min={0} max={5} value={waitForm.priority} onChange={(e) => setWaitForm((cur) => ({ ...cur, priority: Number(e.target.value) || 1 }))} className={`${inputClass} mt-2`} />
-              </label>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowWaitModal(false)} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Cancelar</button>
-              <button type="button" onClick={addToWaitList} className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">Adicionar a fila</button>
-            </div>
-          </div>
-        </Modal>
+        <WaitlistModal
+          waitForm={waitForm}
+          setWaitForm={setWaitForm}
+          apartmentOptions={apartmentOptions}
+          onWaitApartment={handleWaitApartment}
+          onAdd={addToWaitList}
+          onClose={() => setShowWaitModal(false)}
+        />
       )}
 
       {showReserveModal && (
-        <Modal onClose={() => setShowReserveModal(false)} title="Nova reserva" icon={<CalendarClock size={16} />}>
-          <div className="space-y-3">
-            <input value={reservationForm.visitorName} onChange={(e) => setReservationForm((cur) => ({ ...cur, visitorName: e.target.value }))} placeholder="Visitante ou servico" className={inputClass} />
-            <input
-              value={reservationForm.plate}
-              onChange={(e) => setReservationForm((cur) => ({ ...cur, plate: e.target.value.toUpperCase() }))}
-              placeholder="Placa"
-              className={inputClass}
-              pattern={plateInputPattern}
-              title={plateInputTitle}
-            />
-            <select value={reservationForm.apartmentId ?? ""} onChange={(e) => handleReservationApartment(e.target.value)} className={inputClass}>
-              <option value="">Vincular apartamento</option>
-              {apartmentOptions.map((apt) => (
-                <option key={apt.id} value={apt.id}>
-                  {apartmentLabel(apt)}
-                </option>
-              ))}
-            </select>
-            <select value={reservationForm.spotId ?? ""} onChange={(e) => linkSpotFromReservation(e.target.value)} className={inputClass}>
-              <option value="">Reservar vaga especifica (opcional)</option>
-              {state.spots
-                .filter((spot) => spot.type === "VISITANTE" || spot.type === "ROTATIVA" || spot.type === "TEMPORARIA")
-                .map((spot) => (
-                  <option key={spot.id} value={spot.id}>
-                    {spot.code} - {spot.tower} ({spot.status})
-                  </option>
-                ))}
-            </select>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input type="datetime-local" value={reservationForm.startAt} onChange={(e) => setReservationForm((cur) => ({ ...cur, startAt: e.target.value }))} className={inputClass} />
-              <input type="datetime-local" value={reservationForm.endAt} onChange={(e) => setReservationForm((cur) => ({ ...cur, endAt: e.target.value }))} className={inputClass} />
-            </div>
-            <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-              <input type="checkbox" checked={reservationForm.requiresApproval} onChange={(e) => setReservationForm((cur) => ({ ...cur, requiresApproval: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500" />
-              Exigir aprovacao da portaria
-            </label>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowReserveModal(false)} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Cancelar</button>
-              <button type="button" onClick={handleCreateReservation} className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">Salvar reserva</button>
-            </div>
-          </div>
-        </Modal>
+        <ReservationModal
+          reservationForm={reservationForm}
+          setReservationForm={setReservationForm}
+          apartmentOptions={apartmentOptions}
+          spots={state.spots}
+          onReservationApartment={handleReservationApartment}
+          onLinkSpot={linkSpotFromReservation}
+          onCreate={handleCreateReservation}
+          onClose={() => setShowReserveModal(false)}
+        />
       )}
 
       {showSpotModal && (
-        <Modal onClose={() => setShowSpotModal(false)} title={selectedSpotId ? "Editar vaga" : "Nova vaga"} icon={<ShieldCheck size={16} />}>
-          <div className="grid gap-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input value={spotForm.code} onChange={(e) => setSpotForm((c) => ({ ...c, code: e.target.value.toUpperCase() }))} placeholder="Codigo da vaga" className={inputClass} />
-              <input value={spotForm.tower} onChange={(e) => setSpotForm((c) => ({ ...c, tower: e.target.value }))} placeholder="Bloco / torre" className={inputClass} />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input value={spotForm.level} onChange={(e) => setSpotForm((c) => ({ ...c, level: e.target.value }))} placeholder="Setor / subsolo" className={inputClass} />
-              <select value={spotForm.type} onChange={(e) => setSpotForm((c) => ({ ...c, type: e.target.value as GarageSpotType }))} className={inputClass}>
-                <option value="FIXA">Fixa</option>
-                <option value="ROTATIVA">Rotativa</option>
-                <option value="VISITANTE">Visitante</option>
-                <option value="PCD">PCD</option>
-                <option value="CARGA">Carga/descarga</option>
-                <option value="TEMPORARIA">Temporaria</option>
-              </select>
-            </div>
-            <select value={spotForm.status} onChange={(e) => setSpotForm((c) => ({ ...c, status: e.target.value as GarageSpotStatus }))} className={inputClass}>
-              <option value="DISPONIVEL">Disponivel</option>
-              <option value="OCUPADA">Ocupada</option>
-              <option value="RESERVADA">Reservada</option>
-              <option value="BLOQUEADA">Bloqueada</option>
-              <option value="MANUTENCAO">Manutencao</option>
-            </select>
-            <select
-              value={spotForm.apartmentId ?? ""}
-              onChange={(e) => {
-                const mapped = labelToApartment(e.target.value, apartmentOptions);
-                setSpotForm((c) => ({ ...c, ...mapped }));
-              }}
-              className={inputClass}
-            >
-              <option value="">Selecione a unidade</option>
-              {apartmentOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {apartmentLabel(option)}
-                </option>
-              ))}
-            </select>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input value={spotForm.residentName ?? ""} onChange={(e) => setSpotForm((c) => ({ ...c, residentName: e.target.value }))} placeholder="Morador responsavel" className={inputClass} />
-              <input
-                value={spotForm.vehiclePlate ?? ""}
-                onChange={(e) => setSpotForm((c) => ({ ...c, vehiclePlate: e.target.value.toUpperCase() }))}
-                placeholder="Placa"
-                className={inputClass}
-                pattern={plateInputPattern}
-                title={plateInputTitle}
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input value={spotForm.vehicleModel ?? ""} onChange={(e) => setSpotForm((c) => ({ ...c, vehicleModel: e.target.value }))} placeholder="Modelo do veiculo" className={inputClass} />
-              <input value={spotForm.vehicleColor ?? ""} onChange={(e) => setSpotForm((c) => ({ ...c, vehicleColor: e.target.value }))} placeholder="Cor" className={inputClass} />
-            </div>
-            <textarea value={spotForm.notes ?? ""} onChange={(e) => setSpotForm((c) => ({ ...c, notes: e.target.value }))} rows={4} placeholder="Observacoes da vaga" className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100" />
-            <div className="flex gap-3 justify-end">
-              <button type="button" onClick={() => setShowSpotModal(false)} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Cancelar</button>
-              <button type="button" onClick={handleSaveSpot} className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">Salvar</button>
-              <button type="button" onClick={handleDeleteSpot} disabled={!selectedSpotId} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Excluir</button>
-            </div>
-          </div>
-        </Modal>
+        <SpotEditModal
+          spotForm={spotForm}
+          setSpotForm={setSpotForm}
+          apartmentOptions={apartmentOptions}
+          selectedSpotId={selectedSpotId}
+          onSave={handleSaveSpot}
+          onDelete={handleDeleteSpot}
+          onClose={() => setShowSpotModal(false)}
+        />
       )}
     </AppLayout>
   );
 }
 
-function Modal({ title, icon, onClose, children }: { title: string; icon: ReactNode; onClose: () => void; children: ReactNode }) {
-  return (
-    <div className={modalShell} onClick={onClose}>
-      <div className={modalPanel} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-4">
-          <div className="flex items-center gap-2 text-slate-900">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">{icon}</span>
-            <h3 className="m-0 text-lg font-semibold">{title}</h3>
-          </div>
-          <button onClick={onClose} className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="pt-4">{children}</div>
-      </div>
-    </div>
-  );
-}
 
