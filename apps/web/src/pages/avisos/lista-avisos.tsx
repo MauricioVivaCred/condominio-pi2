@@ -218,6 +218,7 @@ export default function ListaAvisos() {
     activeFilterCount,
     novoOpen, setNovoOpen,
     form, setForm,
+    formCondominioUUID, setFormCondominioUUID,
     anexoFile, setAnexoFile,
     editAnexoFile, setEditAnexoFile,
     fileInputRef, editFileInputRef,
@@ -233,11 +234,11 @@ export default function ListaAvisos() {
     applyFilters,
   } = useAvisos();
 
-  function handleFormFieldChange(field: keyof CreateAvisoPayload, value: string) {
+  function handleFormFieldChange(field: keyof CreateAvisoPayload, value: string | null) {
     setForm({ ...form, [field]: value });
   }
 
-  function handleEditFormFieldChange(field: keyof CreateAvisoPayload, value: string) {
+  function handleEditFormFieldChange(field: keyof CreateAvisoPayload, value: string | null) {
     setEditForm({ ...editForm, [field]: value });
   }
 
@@ -529,6 +530,8 @@ export default function ListaAvisos() {
         anexoFile={anexoFile}
         onAnexoChange={setAnexoFile}
         fileInputRef={fileInputRef}
+        onCondominioChange={setFormCondominioUUID}
+        selectedCondominioUUID={formCondominioUUID}
       />
 
       {/* ── Modal — Detalhe do aviso ── */}

@@ -18,6 +18,7 @@ export type Aviso = {
   author_name?: string;
   curtidas_count: number;
   user_curtiu: boolean;
+  destinatario_user_id: string | null;
 };
 
 export type CreateAvisoPayload = {
@@ -26,7 +27,40 @@ export type CreateAvisoPayload = {
   tipo: AvisoTipo;
   data_expiracao?: string;
   arquivo_url?: string;
+  destinatario_user_id?: string | null;
 };
+
+export type MoradorOption = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export async function listMoradoresDoCondominio(condominioUUID: string): Promise<MoradorOption[]> {
+  const { data } = await supabase
+    .from("usuario_condominio")
+    .select("user_id, profiles(name, email)")
+    .eq("condominio_id", condominioUUID)
+    .eq("active", true);
+
+  if (!data) return [];
+
+  return (data as unknown as Array<{ user_id: string; profiles: { name: string; email: string } | null }>)
+    .filter((r) => r.profiles)
+    .map((r) => ({ id: r.user_id, name: r.profiles!.name, email: r.profiles!.email }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export type CondominioSimples = { id: string; name: string };
+
+export async function listCondominiosAtivos(): Promise<CondominioSimples[]> {
+  const { data } = await supabase
+    .from("condominios")
+    .select("id, name")
+    .eq("active", true)
+    .order("name");
+  return (data ?? []) as CondominioSimples[];
+}
 
 export type Notificacao = {
   id: string;
@@ -57,17 +91,30 @@ export const AVISO_TIPO_COLORS: Record<AvisoTipo, string> = {
 export async function listAvisos(): Promise<Aviso[]> {
   const { data: { user: authUser } } = await supabase.auth.getUser();
   const uid = authUser?.id ?? null;
+  const storedUser = getUser();
+  const isMasterAdmin = storedUser?.role === "MASTER_ADMIN";
   const condominioUUID = await getCondominioUUIDAsync();
 
-let query = supabase
+  let query = supabase
     .from("avisos")
     .select("*, profiles!created_by(name)")
     .eq("removed", false)
     .order("fixado", { ascending: false })
     .order("created_at", { ascending: false });
 
+  if (isMasterAdmin) {
+    // MASTER_ADMIN não vê avisos — apenas cria
+    return [];
+  }
+
   if (condominioUUID) {
     query = query.eq("condominio_id", condominioUUID);
+    // Mostrar avisos para o condomínio todo OU especificamente para este usuário
+    if (uid) {
+      query = query.or(`destinatario_user_id.is.null,destinatario_user_id.eq.${uid}`);
+    } else {
+      query = query.is("destinatario_user_id", null);
+    }
   }
 
   const { data, error } = await query;
@@ -109,15 +156,21 @@ let query = supabase
   }));
 }
 
-export async function createAviso(payload: CreateAvisoPayload): Promise<void> {
+export async function createAviso(payload: CreateAvisoPayload, condominioUUID?: string | null): Promise<void> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Não autenticado.");
 
+  const resolvedCondominioId = condominioUUID ?? getUser()?.condominioUUID ?? null;
+
   const { error } = await supabase.from("avisos").insert({
-    ...payload,
-    created_by: user.id,
+    titulo: payload.titulo,
+    descricao: payload.descricao,
+    tipo: payload.tipo,
     data_expiracao: payload.data_expiracao || null,
-    condominio_id: getUser()?.condominioUUID ?? null,
+    arquivo_url: payload.arquivo_url || null,
+    destinatario_user_id: payload.destinatario_user_id ?? null,
+    created_by: user.id,
+    condominio_id: resolvedCondominioId,
   });
 
   if (error) throw new Error(error.message);

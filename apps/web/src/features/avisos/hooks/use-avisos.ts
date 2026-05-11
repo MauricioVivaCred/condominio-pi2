@@ -31,7 +31,7 @@ const VALID_PAGE_SIZES = [10, 20, 50];
 
 export function useAvisos() {
   const user = getUser();
-  const isAdmin = user?.role === "ADMIN";
+  const isAdmin = user?.role === "ADMIN" || user?.role === "MASTER_ADMIN";
 
   const [avisos, setAvisos] = useState<Aviso[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +54,7 @@ export function useAvisos() {
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [novoOpen, setNovoOpen] = useState(false);
   const [form, setForm] = useState<CreateAvisoPayload>(EMPTY_FORM);
+  const [formCondominioUUID, setFormCondominioUUID] = useState<string | null>(null);
   const [anexoFile, setAnexoFile] = useState<File | null>(null);
   const [editAnexoFile, setEditAnexoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -182,9 +183,13 @@ export function useAvisos() {
     try {
       let arquivo_url = form.arquivo_url || undefined;
       if (anexoFile) arquivo_url = await uploadAvisoAnexo(anexoFile);
-      await createAviso({ ...form, data_expiracao: form.data_expiracao || undefined, arquivo_url });
+      await createAviso(
+        { ...form, data_expiracao: form.data_expiracao || undefined, arquivo_url },
+        formCondominioUUID,
+      );
       setNovoOpen(false);
       setForm(EMPTY_FORM);
+      setFormCondominioUUID(null);
       setAnexoFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
       load();
@@ -272,6 +277,7 @@ export function useAvisos() {
     activeFilterCount,
     novoOpen, setNovoOpen,
     form, setForm,
+    formCondominioUUID, setFormCondominioUUID,
     anexoFile, setAnexoFile,
     editAnexoFile, setEditAnexoFile,
     fileInputRef, editFileInputRef,
