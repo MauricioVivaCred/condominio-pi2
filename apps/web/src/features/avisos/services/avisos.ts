@@ -40,17 +40,32 @@ export async function listMoradoresDoCondominio(condominioUUID: string): Promise
   const { data: { user: authUser } } = await supabase.auth.getUser();
   const currentUserId = authUser?.id ?? null;
 
-  const { data } = await supabase
+  // Busca os user_ids do condomínio
+  const { data: ucData, error: ucError } = await supabase
     .from("usuario_condominio")
-    .select("user_id, profiles(name, email)")
+    .select("user_id")
     .eq("condominio_id", condominioUUID)
     .eq("active", true);
 
-  if (!data) return [];
+  if (ucError || !ucData || ucData.length === 0) return [];
 
-  return (data as unknown as Array<{ user_id: string; profiles: { name: string; email: string } | null }>)
-    .filter((r) => r.profiles && r.user_id !== currentUserId)
-    .map((r) => ({ id: r.user_id, name: r.profiles!.name, email: r.profiles!.email }))
+  const userIds = (ucData as Array<{ user_id: string }>)
+    .map((r) => r.user_id)
+    .filter((id) => id !== currentUserId);
+
+  if (userIds.length === 0) return [];
+
+  // Busca os perfis separadamente
+  const { data: profilesData } = await supabase
+    .from("profiles")
+    .select("id, name, email")
+    .in("id", userIds);
+
+  if (!profilesData) return [];
+
+  return (profilesData as Array<{ id: string; name: string; email: string }>)
+    .filter((p) => p.name || p.email)
+    .map((p) => ({ id: p.id, name: p.name || p.email, email: p.email }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
