@@ -15,7 +15,6 @@ export default function CompletarPerfil() {
 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
-  const [dataNascimento, setDataNascimento] = useState("");
   const [senha, setSenha] = useState("");
   const [confirmar, setConfirmar] = useState("");
   const [showSenha, setShowSenha] = useState(false);
@@ -82,7 +81,6 @@ export default function CompletarPerfil() {
         .update({
           name: nome.trim(),
           phone: telefone.trim() || null,
-          data_nascimento: dataNascimento || null,
         })
         .eq("id", userId);
       if (profileErr) throw new Error(profileErr.message);
@@ -90,7 +88,7 @@ export default function CompletarPerfil() {
       // Fetch the full profile to build the stored user
       const { data: profile } = await supabase
         .from("profiles")
-        .select("name, role, phone, resident_type, status, avatar_url, data_nascimento")
+        .select("name, role, phone, resident_type, status, avatar_url")
         .eq("id", userId)
         .single();
 
@@ -129,6 +127,13 @@ export default function CompletarPerfil() {
     }
   }
 
+  function maskPhone(raw: string) {
+    const digits = raw.replace(/\D/g, "").slice(0, 11);
+    if (digits.length <= 2) return digits.length ? `(${digits}` : "";
+    if (digits.length <= 7) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+  }
+
   const inputCls =
     "w-full border border-gray-200 rounded-lg px-4 py-3 text-sm text-gray-800 placeholder-gray-300 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition";
 
@@ -149,7 +154,7 @@ export default function CompletarPerfil() {
         {/* Logo */}
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-full bg-linear-to-br from-violet-500 to-indigo-600" />
-          <span className="font-semibold text-sm text-gray-700">Condomínio</span>
+          <span className="font-semibold text-sm text-gray-700">OmniLar</span>
         </div>
 
         <div className="w-full max-w-sm mx-auto py-8">
@@ -249,21 +254,8 @@ export default function CompletarPerfil() {
                   <input
                     type="tel"
                     value={telefone}
-                    onChange={(e) => setTelefone(e.target.value)}
+                    onChange={(e) => setTelefone(maskPhone(e.target.value))}
                     placeholder="(11) 99999-9999"
-                    className={inputCls}
-                  />
-                </div>
-
-                {/* Data de nascimento */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                    Data de nascimento
-                  </label>
-                  <input
-                    type="date"
-                    value={dataNascimento}
-                    onChange={(e) => setDataNascimento(e.target.value)}
                     className={inputCls}
                   />
                 </div>
@@ -333,12 +325,8 @@ export default function CompletarPerfil() {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between text-xs text-gray-400">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-linear-to-br from-violet-500 to-indigo-600" />
-            <span>Sistema do Condomínio</span>
-          </div>
-          <span>© {new Date().getFullYear()}</span>
+        <div className="text-xs text-gray-400 text-right">
+          © {new Date().getFullYear()}
         </div>
       </div>
     </div>
