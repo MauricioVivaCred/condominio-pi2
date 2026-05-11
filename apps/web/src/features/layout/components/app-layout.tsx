@@ -104,7 +104,10 @@ function buildGroups(role: string | undefined, plan: PlanId): NavGroup[] {
   if (role === "MASTER_ADMIN") {
     groups.push({
       title: "Admin",
-      links: [{ label: "Condomínios", path: "/condominios", icon: Landmark }],
+      links: [
+        { label: "Condomínios", path: "/condominios", icon: Landmark },
+        { label: "Planos", path: "/planos", icon: BarChart2 },
+      ],
     });
   }
 
@@ -227,8 +230,8 @@ export default function AppLayout({ title, children }: { title: string; children
         </div>
 
         {condName && !collapsed && (
-          <div className="shrink-0 border-b border-gray-100 px-4 py-2.5">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600">{condName}</p>
+          <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 text-center">
+            <p className="wrap-break-word text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600 leading-snug">{condName}</p>
           </div>
         )}
 

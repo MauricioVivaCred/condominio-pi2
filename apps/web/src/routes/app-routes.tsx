@@ -21,6 +21,7 @@ import VisitantesPage from "../pages/visitantes/index.tsx";
 import VisitorApprovalPage from "../pages/visitantes/aprovacao.tsx";
 import VisitorAccessCardPage from "../pages/visitantes/cartao.tsx";
 import CondominiosPage from "../pages/condominios/index.tsx";
+import PlanosPage from "../pages/planos/index.tsx";
 import CompletarPerfil from "../pages/completar-perfil/index.tsx";
 import ProtectedRoute from "./protected-route";
 
@@ -36,22 +37,24 @@ export default function AppRoutes() {
         <Route path="/completar-perfil" element={<CompletarPerfil />} />
         <Route path="/visitantes/aprovacao" element={<VisitorApprovalPage />} />
         <Route path="/visitantes/cartao" element={<VisitorAccessCardPage />} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/avisos" element={<ProtectedRoute><ListaAvisos /></ProtectedRoute>} />
-        <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
-        <Route path="/enquetes" element={<ProtectedRoute><EnquetesPage /></ProtectedRoute>} />
-        <Route path="/ocorrencias" element={<ProtectedRoute><ListaOcorrencias /></ProtectedRoute>} />
-        <Route path="/agendamentos" element={<ProtectedRoute><Agendamentos /></ProtectedRoute>} />
-        <Route path="/visitantes" element={<ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "PORTEIRO"]}><VisitantesPage /></ProtectedRoute>} />
-        <Route path="/encomendas" element={<ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "PORTEIRO"]}><EncomendasPage /></ProtectedRoute>} />
-        <Route path="/financeiro" element={<ProtectedRoute allowedRoles={["ADMIN", "MORADOR"]}><FinanceiroPage /></ProtectedRoute>} />
-        <Route path="/garagem" element={<ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "PORTEIRO"]}><GaragemPage /></ProtectedRoute>} />
-        <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
-        <Route path="/predio" element={<ProtectedRoute adminOnly><MapaPredio /></ProtectedRoute>} />
-        <Route path="/usuarios" element={<ProtectedRoute allowedRoles={["ADMIN", "MORADOR", "MASTER_ADMIN"]}><UsuariosPage /></ProtectedRoute>} />
-        <Route path="/manutencao" element={<ProtectedRoute><MaresiaPage /></ProtectedRoute>} />
-        <Route path="/maresia" element={<Navigate to="/manutencao" replace />} />
-        <Route path="/condominios" element={<ProtectedRoute allowedRoles={["MASTER_ADMIN"]}><CondominiosPage /></ProtectedRoute>} />
+        <Route path="/dashboard"    element={<ProtectedRoute path="/dashboard"><Dashboard /></ProtectedRoute>} />
+        <Route path="/avisos"       element={<ProtectedRoute path="/avisos"><ListaAvisos /></ProtectedRoute>} />
+        <Route path="/chat"         element={<ProtectedRoute path="/chat"><ChatPage /></ProtectedRoute>} />
+        <Route path="/enquetes"     element={<ProtectedRoute path="/enquetes"><EnquetesPage /></ProtectedRoute>} />
+        <Route path="/ocorrencias"  element={<ProtectedRoute path="/ocorrencias"><ListaOcorrencias /></ProtectedRoute>} />
+        <Route path="/agendamentos" element={<ProtectedRoute path="/agendamentos"><Agendamentos /></ProtectedRoute>} />
+        <Route path="/visitantes"   element={<ProtectedRoute path="/visitantes"><VisitantesPage /></ProtectedRoute>} />
+        <Route path="/encomendas"   element={<ProtectedRoute path="/encomendas"><EncomendasPage /></ProtectedRoute>} />
+        <Route path="/financeiro"   element={<ProtectedRoute path="/financeiro"><FinanceiroPage /></ProtectedRoute>} />
+        <Route path="/garagem"      element={<ProtectedRoute path="/garagem"><GaragemPage /></ProtectedRoute>} />
+        <Route path="/perfil"       element={<ProtectedRoute path="/perfil"><Perfil /></ProtectedRoute>} />
+        <Route path="/predio"       element={<ProtectedRoute path="/predio"><MapaPredio /></ProtectedRoute>} />
+        <Route path="/usuarios"     element={<ProtectedRoute path="/usuarios"><UsuariosPage /></ProtectedRoute>} />
+        <Route path="/manutencao"   element={<ProtectedRoute path="/manutencao"><MaresiaPage /></ProtectedRoute>} />
+        <Route path="/condominios"  element={<ProtectedRoute path="/condominios"><CondominiosPage /></ProtectedRoute>} />
+        <Route path="/planos"       element={<ProtectedRoute path="/planos"><PlanosPage /></ProtectedRoute>} />
+        <Route path="/maresia"      element={<Navigate to="/manutencao" replace />} />
+        <Route path="/relatorios"   element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );

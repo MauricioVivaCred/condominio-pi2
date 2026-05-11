@@ -249,40 +249,38 @@ export default function ListaAvisos() {
       <div className="grid gap-4">
 
         {/* ── Toolbar ── */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            {/* Filter button */}
-            <button
-              onClick={() => setFilterPanelOpen(true)}
-              className={`relative flex items-center justify-center w-9 h-9 rounded-xl border cursor-pointer transition-colors ${activeFilterCount > 0 ? "bg-indigo-50 border-indigo-300 text-indigo-600" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}
-            >
-              <Filter size={15} />
-              {activeFilterCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Filter button */}
+          <button
+            onClick={() => setFilterPanelOpen(true)}
+            className={`relative shrink-0 flex items-center justify-center w-9 h-9 rounded-xl border cursor-pointer transition-colors ${activeFilterCount > 0 ? "bg-indigo-50 border-indigo-300 text-indigo-600" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}
+          >
+            <Filter size={15} />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
 
-            {/* Search input */}
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Buscar..."
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl bg-white text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-400 w-80 transition-colors"
-              />
-              {searchText && (
-                <button
-                  onClick={() => setSearchText("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
-                >
-                  <X size={13} />
-                </button>
-              )}
-            </div>
+          {/* Search input — ocupa o restante da linha */}
+          <div className="relative flex-1 min-w-0">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Buscar..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl bg-white text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-400 w-full transition-colors"
+            />
+            {searchText && (
+              <button
+                onClick={() => setSearchText("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <X size={13} />
+              </button>
+            )}
           </div>
 
           {isAdmin && (
