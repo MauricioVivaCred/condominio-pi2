@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Gauge,
   ParkingSquare,
-  ShieldCheck,
   Sparkles,
   Users,
 } from "lucide-react";
@@ -20,7 +19,6 @@ import {
   isValidBrazilianPlate,
   overlaps,
   chunkSpots,
-  apartmentLabel,
   labelToApartment,
 } from "./utils/garage-validation";
 import { mapSpotTone, SpotCard, CompactSpotCard } from "./components/spot-card";

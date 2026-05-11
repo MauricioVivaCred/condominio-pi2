@@ -1,7 +1,6 @@
 import { X } from "lucide-react";
 import type { MaintenanceOrder } from "../../../features/maintenance/services/maintenance";
 import { inputClass, labelClass, textareaClass } from "../utils/maintenance-meta";
-import { formatDateTime } from "../utils/maintenance-format";
 
 export function AccessModal({
   open,

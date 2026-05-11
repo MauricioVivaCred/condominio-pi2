@@ -4,7 +4,6 @@ import {
   FileText,
   MessageSquare,
   PlusCircle,
-  Sparkles,
   Users,
   Vote,
 } from "lucide-react";
@@ -35,7 +34,7 @@ export default function EnquetesPage() {
 
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [_error, setError] = useState("");
   const [info, setInfo] = useState("");
 
   const [createOpen, setCreateOpen] = useState(false);

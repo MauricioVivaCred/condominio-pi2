@@ -1,4 +1,5 @@
-import { X, type ReactNode } from "lucide-react";
+import { X } from "lucide-react";
+import type { ReactNode } from "react";
 
 const modalShell = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-6";
 const modalPanel = "max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl";

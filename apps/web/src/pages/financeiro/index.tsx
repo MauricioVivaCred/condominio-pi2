@@ -11,7 +11,6 @@ import {
   Printer,
   Receipt,
   Wallet,
-  X,
 } from "lucide-react";
 import {
   Area,
@@ -67,9 +66,6 @@ import { ResidentFinanceView } from "./components/resident-finance-view";
 
 type FinanceModal = "revenue" | "expense" | "bill" | null;
 
-const inputClass =
-  "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
-const fieldLabelClass = "grid gap-2 text-sm font-medium text-slate-700";
 const panelClass =
   "rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur";
 export default function FinanceiroPage() {

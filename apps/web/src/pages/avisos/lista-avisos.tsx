@@ -10,7 +10,7 @@ import {
 } from "../../features/avisos/services/avisos";
 import { type AvisoSortKey as SortKey } from "../../features/avisos/constants/avisos.constants";
 import { useAvisos, isExpiredDate } from "../../features/avisos/hooks/use-avisos";
-import { SortTh, SortIcon } from "../../components/ui/sort-th";
+import { SortTh } from "../../components/ui/sort-th";
 import { Pagination } from "../../components/ui/pagination";
 import { AvisoCriarModal } from "../../features/avisos/components/aviso-criar-modal";
 import { AvisoEditarModal } from "../../features/avisos/components/aviso-editar-modal";
