@@ -17,7 +17,7 @@ function escapeHtml(value: string) {
     .replaceAll("'", "&#39;");
 }
 
-function formatDateDocument(iso: string | null) {
+export function formatDateDocument(iso: string | null) {
   if (!iso) return "-";
   return new Date(iso).toLocaleString("pt-BR", {
     day: "2-digit",

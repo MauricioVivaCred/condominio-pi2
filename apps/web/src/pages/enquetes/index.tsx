@@ -1,16 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   CheckCircle2,
-  Clock3,
   FileText,
-  Printer,
   MessageSquare,
   PlusCircle,
-  SendHorizonal,
   Sparkles,
   Users,
   Vote,
-  X,
 } from "lucide-react";
 import AppLayout from "../../features/layout/components/app-layout";
 import { getUser } from "../../features/auth/services/auth";
@@ -22,66 +18,15 @@ import {
   subscribeToPolls,
   updatePollStatus,
   voteOnPoll,
-  type AssemblyMode,
-  type AssemblyScope,
-  type AssemblyStatus,
-  type AssemblyType,
   type Poll,
   type PollSignatureLog,
 } from "../../features/enquetes/services/enquetes";
-import {
-  formatDate,
-  getPollTotalVotes,
-  getWinningOption,
-  getStatusMeta,
-  getAssemblyTypeLabel,
-  getModeLabel,
-  getScopeLabel,
-} from "./utils/poll-calc";
+import { getPollTotalVotes } from "./utils/poll-calc";
 import { buildMinutesDocument } from "./utils/minutes-builder";
-import { SignaturePad } from "./components/signature-pad";
-
-const inputClass =
-  "w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100";
-
-
-
-function ModalShell({
-  title,
-  subtitle,
-  onClose,
-  children,
-}: {
-  title: string;
-  subtitle: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <>
-      <div className="fixed inset-0 z-40 bg-slate-950/45 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_40px_120px_-35px_rgba(15,23,42,0.45)]">
-          <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
-            <div>
-              <h3 className="m-0 text-lg font-semibold text-slate-950">{title}</h3>
-              <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          <div className="max-h-[calc(90vh-92px)] overflow-y-auto px-6 py-5">{children}</div>
-        </div>
-      </div>
-    </>
-  );
-}
+import { PollCard } from "./components/poll-card";
+import { PollFormModal, emptyCreatePollDraft, type CreatePollDraft } from "./components/poll-form-modal";
+import { VoteSignatureModal } from "./components/vote-signature-modal";
+import { PollDetailModal } from "./components/poll-detail-modal";
 
 export default function EnquetesPage() {
   const user = getUser();
@@ -89,39 +34,26 @@ export default function EnquetesPage() {
   const canManage = user?.role === "ADMIN";
 
   const [polls, setPolls] = useState<Poll[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
+
   const [createOpen, setCreateOpen] = useState(false);
+  const [createDraft, setCreateDraft] = useState<CreatePollDraft>(emptyCreatePollDraft());
+  const [creating, setCreating] = useState(false);
+
   const [selectedPollId, setSelectedPollId] = useState<string | null>(null);
   const [minutesDraft, setMinutesDraft] = useState("");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [optionA, setOptionA] = useState("");
-  const [optionB, setOptionB] = useState("");
-  const [optionC, setOptionC] = useState("");
-  const [assemblyType, setAssemblyType] = useState<AssemblyType>("ORDINARIA");
-  const [meetingMode, setMeetingMode] = useState<AssemblyMode>("DIGITAL");
-  const [scope, setScope] = useState<AssemblyScope>("GERAL");
-  const [status, setStatus] = useState<AssemblyStatus>("OPEN");
-  const [meetingAt, setMeetingAt] = useState("");
-  const [votingStartsAt, setVotingStartsAt] = useState("");
-  const [votingEndsAt, setVotingEndsAt] = useState("");
-  const [quorumMinPercent, setQuorumMinPercent] = useState("50");
-  const [approvalMinPercent, setApprovalMinPercent] = useState("50");
-  const [allowComments, setAllowComments] = useState(true);
-  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
-  const [signatureFile, setSignatureFile] = useState<File | null>(null);
-  const [signatureDataUrl, setSignatureDataUrl] = useState<string>("");
-  const [voteSignatureDataUrl, setVoteSignatureDataUrl] = useState<string>("");
-  const [voteSignatureOpen, setVoteSignatureOpen] = useState(false);
-  const [pendingVote, setPendingVote] = useState<{ pollId: string; optionId: string } | null>(null);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [signatureLogs, setSignatureLogs] = useState<PollSignatureLog[]>([]);
   const [loadingSignatureLogs, setLoadingSignatureLogs] = useState(false);
-  const [loading, setLoading] = useState(true);
+
+  const [voteSignatureOpen, setVoteSignatureOpen] = useState(false);
+  const [voteSignatureDataUrl, setVoteSignatureDataUrl] = useState("");
+  const [pendingVote, setPendingVote] = useState<{ pollId: string; optionId: string } | null>(null);
+
   const [busyPollId, setBusyPollId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
   const [signing, setSigning] = useState(false);
-  const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -137,116 +69,49 @@ export default function EnquetesPage() {
 
   useEffect(() => {
     let active = true;
-
-    void (async () => {
-      if (!active) return;
-      await load();
-    })();
-
-    const unsubscribe = subscribeToPolls(() => {
-      if (!active) return;
-      void load();
-    });
-
-    return () => {
-      active = false;
-      unsubscribe();
-    };
+    void (async () => { if (!active) return; await load(); })();
+    const unsubscribe = subscribeToPolls(() => { if (!active) return; void load(); });
+    return () => { active = false; unsubscribe(); };
   }, [load]);
 
-  const stats = useMemo(() => {
-    const totalVotes = polls.reduce((sum, poll) => sum + getPollTotalVotes(poll), 0);
-    const totalComments = polls.reduce((sum, poll) => sum + poll.comments.length, 0);
-    const openAssemblies = polls.filter((poll) => poll.status === "OPEN").length;
-    const participated = polls.filter((poll) => poll.options.some((option) => option.votes.includes(voterId))).length;
+  const selectedPoll = selectedPollId ? polls.find((p) => p.id === selectedPollId) ?? null : null;
 
-    return {
-      totalAssemblies: polls.length,
-      totalVotes,
-      totalComments,
-      openAssemblies,
-      participated,
-    };
-  }, [polls, voterId]);
-
-  const selectedPoll = selectedPollId ? polls.find((poll) => poll.id === selectedPollId) ?? null : null;
-
-  useEffect(() => {
-    setMinutesDraft(selectedPoll?.minutesSummary ?? "");
-  }, [selectedPoll?.id, selectedPoll?.minutesSummary]);
+  useEffect(() => { setMinutesDraft(selectedPoll?.minutesSummary ?? ""); }, [selectedPoll?.id, selectedPoll?.minutesSummary]);
 
   useEffect(() => {
     let active = true;
-
-    if (!selectedPoll?.id) {
-      setSignatureLogs([]);
-      return () => {
-        active = false;
-      };
-    }
-
+    if (!selectedPoll?.id) { setSignatureLogs([]); return () => { active = false; }; }
     setLoadingSignatureLogs(true);
     void listPollSignatures(selectedPoll.id)
-      .then((logs) => {
-        if (!active) return;
-        setSignatureLogs(logs);
-      })
-      .catch(() => {
-        if (!active) return;
-        setSignatureLogs([]);
-      })
-      .finally(() => {
-        if (!active) return;
-        setLoadingSignatureLogs(false);
-      });
-
-    return () => {
-      active = false;
-    };
+      .then((logs) => { if (active) setSignatureLogs(logs); })
+      .catch(() => { if (active) setSignatureLogs([]); })
+      .finally(() => { if (active) setLoadingSignatureLogs(false); });
+    return () => { active = false; };
   }, [selectedPoll?.id]);
 
-  function resetCreateForm() {
-    setTitle("");
-    setDescription("");
-    setOptionA("");
-    setOptionB("");
-    setOptionC("");
-    setAssemblyType("ORDINARIA");
-    setMeetingMode("DIGITAL");
-    setScope("GERAL");
-    setStatus("OPEN");
-    setMeetingAt("");
-    setVotingStartsAt("");
-    setVotingEndsAt("");
-    setQuorumMinPercent("50");
-    setApprovalMinPercent("50");
-    setAllowComments(true);
-    setAttachmentFile(null);
-    setSignatureFile(null);
-    setSignatureDataUrl("");
-    setError("");
-    setInfo("");
-  }
+  const stats = useMemo(() => ({
+    totalAssemblies: polls.length,
+    totalVotes: polls.reduce((sum, p) => sum + getPollTotalVotes(p), 0),
+    totalComments: polls.reduce((sum, p) => sum + p.comments.length, 0),
+    openAssemblies: polls.filter((p) => p.status === "OPEN").length,
+    participated: polls.filter((p) => p.options.some((o) => o.votes.includes(voterId))).length,
+  }), [polls, voterId]);
 
   async function handleCreatePoll(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (creating) return;
-
-    const options = [optionA, optionB, optionC].map((value) => value.trim()).filter(Boolean);
+    const options = [createDraft.optionA, createDraft.optionB, createDraft.optionC].map((v) => v.trim()).filter(Boolean);
     const missing: string[] = [];
-    if (!title.trim()) missing.push("Título");
-    if (!description.trim()) missing.push("Descrição");
+    if (!createDraft.title.trim()) missing.push("Título");
+    if (!createDraft.description.trim()) missing.push("Descrição");
     if (options.length < 2) missing.push("Pelo menos 2 opções");
-    if (!votingStartsAt) missing.push("Início da votação");
-    if (!votingEndsAt) missing.push("Fim da votação");
-    if (missing.length > 0) {
-      setError(`Preencha: ${missing.join(", ")}.`);
-      return;
-    }
+    if (!createDraft.votingStartsAt) missing.push("Início da votação");
+    if (!createDraft.votingEndsAt) missing.push("Fim da votação");
+    if (missing.length > 0) { setError(`Preencha: ${missing.join(", ")}.`); return; }
 
-    let signatureUpload: File | null = signatureFile;
-    if (!signatureUpload && signatureDataUrl) {
-      const blob = await (await fetch(signatureDataUrl)).blob();
+    let signatureUpload: File | null = createDraft.signatureFile;
+    if (!signatureUpload && createDraft.signatureDataUrl) {
+      const blob = await (await fetch(createDraft.signatureDataUrl)).blob();
       signatureUpload = new File([blob], `signature-${Date.now()}.png`, { type: "image/png" });
     }
 
@@ -255,23 +120,23 @@ export default function EnquetesPage() {
       setError("");
       setInfo("");
       await createPoll({
-        title,
-        description,
+        title: createDraft.title,
+        description: createDraft.description,
         options,
-        assemblyType,
-        meetingMode,
-        scope,
-        status,
-        meetingAt: meetingAt ? new Date(meetingAt).toISOString() : null,
-        votingStartsAt: votingStartsAt ? new Date(votingStartsAt).toISOString() : new Date().toISOString(),
-        votingEndsAt: votingEndsAt ? new Date(votingEndsAt).toISOString() : null,
-        quorumMinPercent: Number(quorumMinPercent),
-        approvalMinPercent: Number(approvalMinPercent),
-        allowComments,
-        attachmentFile,
+        assemblyType: createDraft.assemblyType,
+        meetingMode: createDraft.meetingMode,
+        scope: createDraft.scope,
+        status: createDraft.status,
+        meetingAt: createDraft.meetingAt ? new Date(createDraft.meetingAt).toISOString() : null,
+        votingStartsAt: createDraft.votingStartsAt ? new Date(createDraft.votingStartsAt).toISOString() : new Date().toISOString(),
+        votingEndsAt: createDraft.votingEndsAt ? new Date(createDraft.votingEndsAt).toISOString() : null,
+        quorumMinPercent: Number(createDraft.quorumMinPercent),
+        approvalMinPercent: Number(createDraft.approvalMinPercent),
+        allowComments: createDraft.allowComments,
+        attachmentFile: createDraft.attachmentFile,
         signatureFile: signatureUpload,
       });
-      resetCreateForm();
+      setCreateDraft(emptyCreatePollDraft());
       setCreateOpen(false);
       setInfo("Assembleia criada com sucesso.");
       void load();
@@ -282,7 +147,7 @@ export default function EnquetesPage() {
     }
   }
 
-  async function handleVote(pollId: string, optionId: string) {
+  function handleVote(pollId: string, optionId: string) {
     setPendingVote({ pollId, optionId });
     setVoteSignatureDataUrl("");
     setVoteSignatureOpen(true);
@@ -290,10 +155,7 @@ export default function EnquetesPage() {
   }
 
   async function confirmPendingVote() {
-    if (!pendingVote || !voteSignatureDataUrl) {
-      setError("Assine para confirmar seu voto.");
-      return;
-    }
+    if (!pendingVote || !voteSignatureDataUrl) { setError("Assine para confirmar seu voto."); return; }
     try {
       setBusyPollId(pendingVote.pollId);
       setSigning(true);
@@ -304,16 +166,14 @@ export default function EnquetesPage() {
       await voteOnPoll(pendingVote.pollId, pendingVote.optionId, signatureFile);
       setPolls((current) =>
         current.map((poll) =>
-          poll.id !== pendingVote.pollId
-            ? poll
-            : {
-                ...poll,
-                options: poll.options.map((opt) =>
-                  opt.id === pendingVote.optionId
-                    ? { ...opt, votes: Array.from(new Set([...opt.votes, voterId])) }
-                    : { ...opt, votes: opt.votes.filter((v) => v !== voterId) },
-                ),
-              },
+          poll.id !== pendingVote.pollId ? poll : {
+            ...poll,
+            options: poll.options.map((opt) =>
+              opt.id === pendingVote.optionId
+                ? { ...opt, votes: Array.from(new Set([...opt.votes, voterId])) }
+                : { ...opt, votes: opt.votes.filter((v) => v !== voterId) },
+            ),
+          },
         ),
       );
       setInfo("Voto registrado.");
@@ -332,7 +192,6 @@ export default function EnquetesPage() {
   async function handleCommentSubmit(pollId: string) {
     const message = (commentDrafts[pollId] ?? "").trim();
     if (!message) return;
-
     try {
       setBusyPollId(pollId);
       setError("");
@@ -359,18 +218,13 @@ export default function EnquetesPage() {
 
   function handlePrintMinutes(poll: Poll) {
     const printWindow = window.open("", "_blank", "width=980,height=760");
-    if (!printWindow) {
-      setError("Nao foi possivel abrir a janela de impressao.");
-      return;
-    }
-
+    if (!printWindow) { setError("Nao foi possivel abrir a janela de impressao."); return; }
     const documentContent = buildMinutesDocument({
       ...poll,
       minutesSummary: poll.id === selectedPollId ? minutesDraft : poll.minutesSummary,
-      creatorSignatureUrl: poll.creatorSignatureUrl || signatureDataUrl || null,
+      creatorSignatureUrl: poll.creatorSignatureUrl || createDraft.signatureDataUrl || null,
       creatorSignatureName: poll.creatorSignatureName || user?.name || poll.createdBy,
     });
-
     printWindow.document.open();
     printWindow.document.write(documentContent);
     printWindow.document.close();
@@ -397,7 +251,6 @@ export default function EnquetesPage() {
                 Use esta area para convocar assembleias, abrir a janela de votacao, colher manifestacoes dos moradores e encerrar com uma ata resumida.
               </p>
             </div>
-
             {canManage && (
               <button
                 type="button"
@@ -430,7 +283,6 @@ export default function EnquetesPage() {
           </div>
         </section>
 
-        {error && <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</p>}
         {info && <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{info}</p>}
 
         <section className="space-y-3">
@@ -439,500 +291,61 @@ export default function EnquetesPage() {
               Carregando assembleias...
             </div>
           ) : null}
-
           {!loading && polls.length === 0 ? (
             <div className="rounded-[30px] border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500 shadow-sm">
               Nenhuma assembleia criada ainda.
             </div>
           ) : null}
-
-          {polls.map((poll) => {
-            const totalVotes = getPollTotalVotes(poll);
-            const selectedOptionId = poll.options.find((option) => option.votes.includes(voterId))?.id;
-            const selectedOption = poll.options.find((option) => option.id === selectedOptionId) ?? null;
-            const winner = getWinningOption(poll);
-            const statusMeta = getStatusMeta(poll.status);
-
-            return (
-              <article key={poll.id} className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="m-0 text-base font-semibold text-slate-950">{poll.title}</h3>
-                      <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${statusMeta.className}`}>
-                        {statusMeta.label}
-                      </span>
-                      {selectedOption ? (
-                        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
-                          voce votou
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{poll.description || "Sem descricao adicional."}</p>
-
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{getAssemblyTypeLabel(poll.assemblyType)}</span>
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{getModeLabel(poll.meetingMode)}</span>
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">{getScopeLabel(poll.scope)}</span>
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Quorum {poll.quorumMinPercent}%</span>
-                      <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600">Aprovacao {poll.approvalMinPercent}%</span>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-2 sm:grid-cols-2 xl:w-[420px]">
-                    <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Janela de votacao</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-800">{formatDate(poll.votingStartsAt)} ate {formatDate(poll.votingEndsAt)}</p>
-                    </div>
-                    <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Lider atual</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-800">{winner?.text ?? "Sem definicao ainda"}</p>
-                    </div>
-                    <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Sua escolha</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-800">{selectedOption?.text ?? "Voce ainda nao votou"}</p>
-                    </div>
-                    <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Participacao</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-800">{totalVotes} voto(s) e {poll.comments.length} comentario(s)</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
-                  <div className="flex flex-wrap gap-2">
-                    {poll.options.map((option) => {
-                      const isSelected = option.id === selectedOptionId;
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          onClick={() => handleVote(poll.id, option.id)}
-                          disabled={busyPollId === poll.id || poll.status !== "OPEN" || signing}
-                          className={`inline-flex items-center justify-center rounded-full border px-3 py-2 text-sm font-semibold transition ${
-                            isSelected
-                              ? "border-sky-300 bg-sky-50 text-sky-700"
-                              : "border-slate-200 bg-white text-slate-600 hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
-                          } disabled:cursor-not-allowed disabled:opacity-60`}
-                        >
-                          {option.text}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPollId(poll.id)}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
-                    >
-                      Ver detalhes
-                    </button>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
+          {polls.map((poll) => (
+            <PollCard
+              key={poll.id}
+              poll={poll}
+              voterId={voterId}
+              busyPollId={busyPollId}
+              signing={signing}
+              onVote={handleVote}
+              onViewDetails={setSelectedPollId}
+            />
+          ))}
         </section>
       </div>
 
-      {createOpen ? (
-        <ModalShell title="Nova assembleia" subtitle="Configure a convocacao, pauta e regras de votacao." onClose={() => setCreateOpen(false)}>
-          <form onSubmit={handleCreatePoll} className="space-y-4">
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-600">Titulo da pauta</span>
-              <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ex.: Aprovacao da pintura da fachada" className={`mt-1 ${inputClass}`} />
-            </label>
+      <PollFormModal
+        open={createOpen}
+        draft={createDraft}
+        setDraft={setCreateDraft}
+        creating={creating}
+        onClose={() => setCreateOpen(false)}
+        onSubmit={handleCreatePoll}
+      />
 
-            <label className="block">
-              <span className="text-xs font-semibold text-slate-600">Descricao</span>
-              <textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Explique a pauta, impactos e orientacoes para os moradores." rows={4} className={`mt-1 resize-none ${inputClass}`} />
-            </label>
+      <VoteSignatureModal
+        open={voteSignatureOpen}
+        signatureDataUrl={voteSignatureDataUrl}
+        onSignatureChange={setVoteSignatureDataUrl}
+        signing={signing}
+        onCancel={() => { setVoteSignatureOpen(false); setPendingVote(null); }}
+        onConfirm={() => void confirmPendingVote()}
+      />
 
-            <div className="grid gap-3 md:grid-cols-3">
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-600">Tipo</span>
-                <select value={assemblyType} onChange={(event) => setAssemblyType(event.target.value as AssemblyType)} className={`mt-1 ${inputClass}`}>
-                  <option value="ORDINARIA">Ordinaria</option>
-                  <option value="EXTRAORDINARIA">Extraordinaria</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-600">Modalidade</span>
-                <select value={meetingMode} onChange={(event) => setMeetingMode(event.target.value as AssemblyMode)} className={`mt-1 ${inputClass}`}>
-                  <option value="DIGITAL">Digital</option>
-                  <option value="HIBRIDA">Hibrida</option>
-                  <option value="PRESENCIAL">Presencial</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-600">Escopo</span>
-                <select value={scope} onChange={(event) => setScope(event.target.value as AssemblyScope)} className={`mt-1 ${inputClass}`}>
-                  <option value="GERAL">Geral</option>
-                  <option value="ADMINISTRATIVO">Administrativo</option>
-                  <option value="EMERGENCIAL">Emergencial</option>
-                </select>
-              </label>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-600">Status inicial</span>
-                <select value={status} onChange={(event) => setStatus(event.target.value as AssemblyStatus)} className={`mt-1 ${inputClass}`}>
-                  <option value="OPEN">Aberta</option>
-                  <option value="DRAFT">Rascunho</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-600">Inicio da votacao</span>
-                <input type="datetime-local" value={votingStartsAt} onChange={(event) => setVotingStartsAt(event.target.value)} className={`mt-1 ${inputClass}`} />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-600">Fim da votacao</span>
-                <input type="datetime-local" value={votingEndsAt} onChange={(event) => setVotingEndsAt(event.target.value)} className={`mt-1 ${inputClass}`} />
-              </label>
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-600">Data da reuniao</span>
-                <input type="datetime-local" value={meetingAt} onChange={(event) => setMeetingAt(event.target.value)} className={`mt-1 ${inputClass}`} />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-600">Quorum minimo (%)</span>
-                <input type="number" min={0} max={100} value={quorumMinPercent} onChange={(event) => setQuorumMinPercent(event.target.value)} className={`mt-1 ${inputClass}`} />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-600">Aprovacao minima (%)</span>
-                <input type="number" min={0} max={100} value={approvalMinPercent} onChange={(event) => setApprovalMinPercent(event.target.value)} className={`mt-1 ${inputClass}`} />
-              </label>
-            </div>
-
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-              <input type="checkbox" checked={allowComments} onChange={(event) => setAllowComments(event.target.checked)} className="h-4 w-4 rounded border-slate-300" />
-              Permitir comentarios durante a assembleia
-            </label>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="block">
-                <span className="text-xs font-semibold text-slate-600">Anexo da pauta (PDF, DOC, imagens)</span>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-                  onChange={(event) => setAttachmentFile(event.target.files?.[0] ?? null)}
-                  className="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:rounded-2xl file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
-                />
-                {attachmentFile && <p className="mt-1 text-xs text-slate-500 truncate">Selecionado: {attachmentFile.name}</p>}
-              </label>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-semibold text-slate-600">Ou assine aqui mesmo</p>
-              <SignaturePad value={signatureDataUrl} onChange={setSignatureDataUrl} />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-3">
-              {[
-                { label: "Opcao 1", value: optionA, setter: setOptionA, placeholder: "Aprovar" },
-                { label: "Opcao 2", value: optionB, setter: setOptionB, placeholder: "Rejeitar" },
-                { label: "Opcao 3", value: optionC, setter: setOptionC, placeholder: "Opcional" },
-              ].map((option) => (
-                <label key={option.label} className="block">
-                  <span className="text-xs font-semibold text-slate-600">{option.label}</span>
-                  <input value={option.value} onChange={(event) => option.setter(event.target.value)} placeholder={option.placeholder} className={`mt-1 ${inputClass}`} />
-                </label>
-              ))}
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-              <button type="button" onClick={() => setCreateOpen(false)} disabled={creating} className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                Cancelar
-              </button>
-              <button type="submit" disabled={creating} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">
-                <PlusCircle size={16} />
-                {creating ? "Publicando..." : "Publicar assembleia"}
-              </button>
-            </div>
-          </form>
-        </ModalShell>
-      ) : null}
-
-      {voteSignatureOpen ? (
-        <ModalShell
-          title="Assine para registrar seu voto"
-          subtitle="Por exigencia da assembleia, cada voto precisa ser acompanhado de uma assinatura digital."
-          onClose={() => {
-            setVoteSignatureOpen(false);
-            setPendingVote(null);
-          }}
-        >
-          <div className="space-y-4">
-            <p className="text-sm text-slate-600">
-              Desenhe sua assinatura abaixo. Ela sera armazenada junto ao seu voto nesta assembleia para auditoria interna.
-            </p>
-            <SignaturePad value={voteSignatureDataUrl} onChange={setVoteSignatureDataUrl} />
-            <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setVoteSignatureDataUrl("");
-                  setVoteSignatureOpen(false);
-                  setPendingVote(null);
-                }}
-                className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirmPendingVote()}
-                disabled={!voteSignatureDataUrl || signing}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {signing ? "Registrando voto..." : "Assinar e votar"}
-              </button>
-            </div>
-          </div>
-        </ModalShell>
-      ) : null}
-
-      {selectedPoll ? (
-        <ModalShell
-          title={selectedPoll.title}
-          subtitle={`Convocada por ${selectedPoll.createdBy} em ${formatDate(selectedPoll.createdAt)}`}
-          onClose={() => setSelectedPollId(null)}
-        >
-          <div className="space-y-5">
-            <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
-              <div className="flex flex-wrap gap-2">
-                <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${getStatusMeta(selectedPoll.status).className}`}>
-                  {getStatusMeta(selectedPoll.status).label}
-                </span>
-                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                  {getAssemblyTypeLabel(selectedPoll.assemblyType)}
-                </span>
-                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                  {getModeLabel(selectedPoll.meetingMode)}
-                </span>
-                <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                  {getScopeLabel(selectedPoll.scope)}
-                </span>
-              </div>
-
-              <p className="mt-4 m-0 text-sm leading-7 text-slate-700">{selectedPoll.description || "Sem descricao adicional."}</p>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Janela de votacao</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(selectedPoll.votingStartsAt)} ate {formatDate(selectedPoll.votingEndsAt)}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Reuniao</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-900">{formatDate(selectedPoll.meetingAt)}</p>
-                </div>
-              </div>
-
-              {(selectedPoll.attachmentUrl || selectedPoll.creatorSignatureUrl) && (
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  {selectedPoll.attachmentUrl && (
-                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Anexo</p>
-                      <a href={selectedPoll.attachmentUrl} target="_blank" rel="noreferrer" className="mt-1 block text-sm font-semibold text-sky-700 hover:underline">
-                        {selectedPoll.attachmentName ?? "Documento da pauta"}
-                      </a>
-                    </div>
-                  )}
-                  {selectedPoll.creatorSignatureUrl && (
-                    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Assinatura de abertura</p>
-                      <p className="text-xs text-slate-500">{selectedPoll.creatorSignatureName ?? "Responsavel"}</p>
-                      <img src={selectedPoll.creatorSignatureUrl} alt="Assinatura" className="mt-2 h-20 max-w-full object-contain" />
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <section className="rounded-[28px] border border-slate-200 bg-white p-5">
-              <div className="flex items-center gap-2 text-slate-500">
-                <Vote size={16} />
-                <span className="text-xs font-semibold uppercase tracking-[0.18em]">Deliberacao</span>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {selectedPoll.options.map((option) => {
-                  const totalVotes = getPollTotalVotes(selectedPoll);
-                  const percentage = totalVotes > 0 ? Math.round((option.votes.length / totalVotes) * 100) : 0;
-                  const isSelected = option.votes.includes(voterId);
-
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => handleVote(selectedPoll.id, option.id)}
-                      disabled={busyPollId === selectedPoll.id || selectedPoll.status !== "OPEN" || signing}
-                      className={`w-full rounded-[24px] border px-4 py-4 text-left transition ${
-                        isSelected
-                          ? "border-sky-300 bg-sky-50"
-                          : "border-slate-200 bg-slate-50 hover:border-sky-200 hover:bg-sky-50/70"
-                      } disabled:cursor-not-allowed disabled:opacity-60`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-sm font-semibold text-slate-800">{option.text}</span>
-                        <span className="text-xs font-semibold text-slate-500">
-                          {option.votes.length} voto(s) • {percentage}%
-                        </span>
-                      </div>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
-                        <div className={`h-full rounded-full ${isSelected ? "bg-sky-500" : "bg-slate-300"}`} style={{ width: `${percentage}%` }} />
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            <section className="rounded-[28px] border border-slate-200 bg-white p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-slate-500">
-                  <Users size={16} />
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em]">Assinaturas registradas</span>
-                </div>
-                <span className="text-xs text-slate-400">{signatureLogs.length} assinatura(s)</span>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {loadingSignatureLogs ? (
-                  <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                    Carregando assinaturas...
-                  </div>
-                ) : signatureLogs.length === 0 ? (
-                  <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                    Nenhuma assinatura registrada ainda.
-                  </div>
-                ) : (
-                  signatureLogs.map((log) => (
-                    <div key={`${log.pollId}-${log.userId}`} className="rounded-[22px] border border-slate-100 bg-slate-50 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="m-0 text-sm font-semibold text-slate-900">{log.signerName}</p>
-                        <span className="text-[11px] text-slate-400">{formatDate(log.signedAt)}</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-[28px] border border-slate-200 bg-white p-5">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 text-slate-500">
-                  <Clock3 size={16} />
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em]">Manifestacoes</span>
-                </div>
-                <span className="text-xs text-slate-400">{selectedPoll.comments.length} registro(s)</span>
-              </div>
-
-              <div className="mt-4 space-y-3">
-                {selectedPoll.comments.length === 0 ? (
-                  <div className="rounded-[22px] border border-dashed border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                    Ainda nao ha comentarios nesta assembleia.
-                  </div>
-                ) : (
-                  selectedPoll.comments.map((comment) => (
-                    <div key={comment.id} className="rounded-[22px] border border-slate-100 bg-slate-50 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="m-0 text-sm font-semibold text-slate-900">{comment.author}</p>
-                        <span className="text-[11px] text-slate-400">{formatDate(comment.createdAt)}</span>
-                      </div>
-                      <p className="mt-2 text-sm leading-6 text-slate-600">{comment.message}</p>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {selectedPoll.allowComments ? (
-                <div className="mt-4 flex flex-col gap-3 md:flex-row">
-                  <input
-                    value={commentDrafts[selectedPoll.id] ?? ""}
-                    onChange={(event) => setCommentDrafts((current) => ({ ...current, [selectedPoll.id]: event.target.value }))}
-                    placeholder="Escreva um comentario sobre esta assembleia"
-                    className={`flex-1 ${inputClass}`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleCommentSubmit(selectedPoll.id)}
-                    disabled={busyPollId === selectedPoll.id}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <SendHorizonal size={16} />
-                    Comentar
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-4 rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-500">
-                  Comentarios desativados para esta assembleia.
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-[28px] border border-slate-200 bg-white p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2 text-slate-500">
-                  <FileText size={16} />
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em]">Ata resumida</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handlePrintMinutes(selectedPoll)}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
-                >
-                  <Printer size={16} />
-                  Imprimir / salvar PDF
-                </button>
-              </div>
-              <textarea
-                value={minutesDraft}
-                onChange={(event) => setMinutesDraft(event.target.value)}
-                rows={5}
-                disabled={!canManage}
-                placeholder="Registre o resultado final, quorum observado e encaminhamentos."
-                className={`mt-4 resize-none ${inputClass} disabled:bg-slate-50`}
-              />
-
-              <div className="mt-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Pre-visualizacao do documento</p>
-                <div className="mt-3 rounded-[20px] border border-slate-200 bg-white p-5 text-sm leading-7 text-slate-700">
-                  <h4 className="m-0 text-base font-semibold text-slate-950">Ata de Assembleia Digital</h4>
-                  <p className="mt-3"><strong>Pauta:</strong> {selectedPoll.title}</p>
-                  <p><strong>Tipo:</strong> {getAssemblyTypeLabel(selectedPoll.assemblyType)}</p>
-                  <p><strong>Modalidade:</strong> {getModeLabel(selectedPoll.meetingMode)}</p>
-                  <p><strong>Janela de votacao:</strong> {formatDateDocument(selectedPoll.votingStartsAt)} ate {formatDateDocument(selectedPoll.votingEndsAt)}</p>
-                  <p><strong>Quorum minimo:</strong> {selectedPoll.quorumMinPercent}%</p>
-                  <p><strong>Aprovacao minima:</strong> {selectedPoll.approvalMinPercent}%</p>
-                  <p><strong>Resultado atual:</strong> {getWinningOption(selectedPoll)?.text ?? "Sem definicao"}</p>
-                  <p className="mt-3 whitespace-pre-wrap">{minutesDraft.trim() || "A ata resumida aparecera aqui assim que for preenchida."}</p>
-                </div>
-              </div>
-
-              {canManage && selectedPoll.status !== "CLOSED" ? (
-                <div className="mt-4 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => handleCloseAssembly(selectedPoll.id)}
-                    disabled={busyPollId === selectedPoll.id}
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <CheckCircle2 size={16} />
-                    Encerrar assembleia
-                  </button>
-                </div>
-              ) : null}
-            </section>
-          </div>
-        </ModalShell>
-      ) : null}
+      <PollDetailModal
+        poll={selectedPoll}
+        voterId={voterId}
+        canManage={canManage}
+        busyPollId={busyPollId}
+        signing={signing}
+        signatureLogs={signatureLogs}
+        loadingSignatureLogs={loadingSignatureLogs}
+        minutesDraft={minutesDraft}
+        onMinutesDraftChange={setMinutesDraft}
+        commentDrafts={commentDrafts}
+        onCommentDraftChange={(pollId, value) => setCommentDrafts((c) => ({ ...c, [pollId]: value }))}
+        onVote={handleVote}
+        onCommentSubmit={handleCommentSubmit}
+        onCloseAssembly={handleCloseAssembly}
+        onPrintMinutes={handlePrintMinutes}
+        onClose={() => setSelectedPollId(null)}
+      />
     </AppLayout>
   );
 }
