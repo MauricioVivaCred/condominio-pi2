@@ -141,6 +141,10 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
 
+  // Seta a sessão no client antes de qualquer query com RLS
+  await supabase.auth.setSession({ access_token: data.session.access_token, refresh_token: data.session.refresh_token });
+  localStorage.setItem("token", data.session.access_token);
+
   const [profileResult, ucResult] = await Promise.all([
     supabase
       .from("profiles")
@@ -157,10 +161,6 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
   const profile = profileResult.data;
   type UcRow = { condominio_id: string; role: string };
   const ucRows = (ucResult.data ?? []) as UcRow[];
-
-  // Bloqueia login de usuários desabilitados
-
-  localStorage.setItem("token", data.session.access_token);
 
   // Role do perfil ou fallback via user_metadata (para MASTER_ADMIN sem RLS)
   const resolvedRole = profile?.role ?? (data.user.user_metadata?.role as string | undefined);
@@ -197,9 +197,13 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
   );
 
   // Filtra apenas condomínios ativos
+  // Se condMap estiver vazio (RLS bloqueou a leitura), assume ativo por padrão
   const activeUcRows = resolvedRole === "MASTER_ADMIN"
     ? ucRows
-    : ucRows.filter((r) => condMap.get(r.condominio_id)?.active !== false);
+    : ucRows.filter((r) => {
+        const cond = condMap.get(r.condominio_id);
+        return cond === undefined ? true : cond.active !== false;
+      });
 
   if (activeUcRows.length === 0 && resolvedRole !== "MASTER_ADMIN") {
     await supabase.auth.signOut();
