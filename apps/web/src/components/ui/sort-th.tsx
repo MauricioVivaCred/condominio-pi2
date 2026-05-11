@@ -15,15 +15,15 @@ export function SortIcon({ col, sortKey, sortDir }: SortIconProps) {
     : <ArrowDown size={12} className="text-indigo-600 shrink-0" />;
 }
 
-type SortThProps = {
-  col: string;
+type SortThProps<T extends string = string> = {
+  col: T;
   label: string;
   sortKey: string;
   sortDir: SortDir;
-  onSort: (col: string) => void;
+  onSort: (col: T) => void;
 };
 
-export function SortTh({ col, label, sortKey, sortDir, onSort }: SortThProps) {
+export function SortTh<T extends string = string>({ col, label, sortKey, sortDir, onSort }: SortThProps<T>) {
   return (
     <th
       onClick={() => onSort(col)}
