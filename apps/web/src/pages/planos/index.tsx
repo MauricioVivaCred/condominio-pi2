@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Check,
   ChevronDown,
@@ -8,19 +8,11 @@ import {
   UserCheck,
   Infinity as InfinityIcon,
   X,
-  Loader2,
 } from "lucide-react";
 import AppLayout from "../../features/layout/components/app-layout";
 import { PLAN_DEFINITIONS, type PlanDefinition } from "../../config/plans";
-import { supabase } from "../../lib/supabase";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
-
-type CondominioRow = {
-  id: string;
-  name: string;
-  plan: string | null;
-};
 
 type EditablePlan = {
   id: string;
@@ -188,93 +180,6 @@ function EditPlanModal({
   );
 }
 
-// ─── Modal de atribuição de plano a condomínio ────────────────────────────────
-
-function AssignPlanModal({
-  condominios,
-  onClose,
-  onSaved,
-}: {
-  condominios: CondominioRow[];
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const [assignments, setAssignments] = useState<Record<string, string>>(() =>
-    Object.fromEntries(condominios.map((c) => [c.id, c.plan ?? "go"])),
-  );
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  async function handleSave() {
-    setSaving(true);
-    setError("");
-    try {
-      for (const [condId, planId] of Object.entries(assignments)) {
-        const { error: err } = await supabase
-          .from("condominios")
-          .update({ plan: planId })
-          .eq("id", condId);
-        if (err) throw new Error(err.message);
-      }
-      onSaved();
-      onClose();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erro ao salvar.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-y-auto max-h-[90vh]">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h3 className="text-base font-semibold text-slate-900">Atribuir planos aos condomínios</h3>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-colors">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="px-6 py-5 grid gap-3">
-          {condominios.map((c) => (
-            <div key={c.id} className="flex items-center justify-between gap-3">
-              <span className="text-sm text-slate-700 flex-1 truncate">{c.name}</span>
-              <select
-                value={assignments[c.id] ?? "go"}
-                onChange={(e) => setAssignments((prev) => ({ ...prev, [c.id]: e.target.value }))}
-                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-800 outline-none focus:border-indigo-400 transition"
-              >
-                {Object.values(PLAN_DEFINITIONS).map((p) => (
-                  <option key={p.id} value={p.id}>{p.label}</option>
-                ))}
-              </select>
-            </div>
-          ))}
-        </div>
-
-        {error && <p className="px-6 text-sm text-red-500">{error}</p>}
-
-        <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-sm font-semibold text-white transition-colors flex items-center gap-2"
-          >
-            {saving && <Loader2 size={14} className="animate-spin" />}
-            Salvar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Card de plano ─────────────────────────────────────────────────────────────
 
 function PlanCard({ plan, onEdit }: { plan: EditablePlan; onEdit: () => void }) {
@@ -371,14 +276,7 @@ export default function PlanosPage() {
     Object.values(PLAN_DEFINITIONS).map(planToEditable),
   );
   const [editing, setEditing] = useState<EditablePlan | null>(null);
-  const [condominios, setCondominios] = useState<CondominioRow[]>([]);
-  const [assignOpen, setAssignOpen] = useState(false);
   const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    supabase.from("condominios").select("id, name, plan").order("name")
-      .then(({ data }) => setCondominios((data ?? []) as CondominioRow[]));
-  }, []);
 
   function handleSavePlan(updated: EditablePlan) {
     setPlans((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
@@ -396,19 +294,11 @@ export default function PlanosPage() {
             <h2 className="text-xl font-bold text-slate-900">Planos disponíveis</h2>
             <p className="text-sm text-slate-500 mt-0.5">Configure limites e funcionalidades de cada plano.</p>
           </div>
-          <div className="flex items-center gap-3">
-            {saved && (
-              <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700">
-                <Check size={15} /> Alterações salvas
-              </div>
-            )}
-            <button
-              onClick={() => setAssignOpen(true)}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold text-white transition-colors"
-            >
-              Atribuir planos
-            </button>
-          </div>
+          {saved && (
+            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700">
+              <Check size={15} /> Alterações salvas
+            </div>
+          )}
         </div>
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -422,18 +312,6 @@ export default function PlanosPage() {
         <EditPlanModal plan={editing} onSave={handleSavePlan} onClose={() => setEditing(null)} />
       )}
 
-      {assignOpen && (
-        <AssignPlanModal
-          condominios={condominios}
-          onClose={() => setAssignOpen(false)}
-          onSaved={() => {
-            supabase.from("condominios").select("id, name, plan").order("name")
-              .then(({ data }) => setCondominios((data ?? []) as CondominioRow[]));
-            setSaved(true);
-            setTimeout(() => setSaved(false), 3000);
-          }}
-        />
-      )}
     </AppLayout>
   );
 }
