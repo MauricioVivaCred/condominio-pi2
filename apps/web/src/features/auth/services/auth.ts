@@ -335,7 +335,7 @@ export async function checkOAuthSession(): Promise<User | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("name, role, phone, car_plate, pets_count, resident_type, status, removed, avatar_url")
+    .select("name, role, phone, car_plate, pets_count, resident_type, status, avatar_url")
     .eq("id", session.user.id)
     .single();
 
