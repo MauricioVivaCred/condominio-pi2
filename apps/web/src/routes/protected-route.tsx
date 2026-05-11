@@ -29,15 +29,15 @@ export default function ProtectedRoute({ children, path, adminOnly, allowedRoles
       return;
     }
 
-    supabase
-      .from("condominios")
-      .select("plan")
-      .eq("id", condominioUUID)
-      .single()
-      .then(({ data }) => {
-        setPlan((data as { plan: string | null } | null)?.plan as PlanId ?? null);
-      })
-      .catch(() => setPlan(null));
+    void Promise.resolve(
+      supabase
+        .from("condominios")
+        .select("plan")
+        .eq("id", condominioUUID)
+        .single()
+    ).then(({ data }) => {
+      setPlan((data as { plan: string | null } | null)?.plan as PlanId ?? null);
+    }).catch(() => setPlan(null));
   }, [token, user?.condominioUUID, user?.role]);
 
   if (!token) return <Navigate to="/login" replace />;
