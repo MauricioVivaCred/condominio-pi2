@@ -1,24 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  Building2,
   CalendarClock,
   CheckCircle2,
   Copy,
   Download,
-  Droplets,
   FileBarChart2,
   FileText,
   Landmark,
   PlusCircle,
   Printer,
   Receipt,
-  ShieldCheck,
-  Users,
   Wallet,
-  Wrench,
   X,
-  Zap,
 } from "lucide-react";
 import {
   Area,
@@ -48,357 +42,47 @@ import {
 } from "../../features/financeiro/services/financeiro";
 import { supabase } from "../../lib/supabase";
 import { fetchBuilding, getMockBuilding, type Floor } from "../../features/predio/services/predio";
+import {
+  type RevenueCategory,
+  type ExpenseCategory,
+  type RevenueStatus,
+  type ExpenseStatus,
+  type MonthlyPoint,
+  type UnitOption,
+  type AccountabilityReport,
+  type LocalMockAssignment,
+  type ResidentUnitDescriptor,
+  revenueCategories,
+  expenseCategories,
+  expenseCategoryMeta,
+  formatCurrency,
+  formatDate,
+  getMonthKey,
+  formatMonthLabel,
+  formatMonthLongLabel,
+  normalizeUnit,
+  parseUnitDescriptor,
+  billMatchesResidentUnit,
+  readLocalMockAssignments,
+  getUnitOptions,
+  getBillStatusMeta,
+} from "./utils/finance-calc";
+import {
+  buildPixCode,
+  openBillPrintView,
+  openReceiptPrintView,
+  openAccountabilityPrintView,
+  openInvoicesPrintView,
+} from "./utils/finance-print";
+import { FinanceTooltip } from "./components/finance-tooltip";
 
-type RevenueCategory = "Taxa condominial" | "Multa" | "Juros por atraso" | "Aluguel areas comuns";
-type ExpenseCategory = "Funcionarios" | "Energia" | "Agua" | "Manutencao" | "Limpeza" | "Seguranca" | "Outros";
-type RevenueStatus = "Recebido" | "Em aberto" | "Atrasado";
-type ExpenseStatus = "Pago" | "Pendente" | "Em negociacao";
 type FinanceModal = "revenue" | "expense" | "bill" | null;
-type MonthlyPoint = { month: string; receitas: number; despesas: number; saldo: number };
-type UnitOption = { value: string; label: string; resident: string; email: string };
-type AccountabilityReport = {
-  key: string;
-  label: string;
-  receitas: number;
-  despesas: number;
-  saldo: number;
-  highlights: FinanceEntry[];
-};
-type LocalMockAssignment = {
-  userId: string | null;
-  resident: {
-    id?: string;
-    name?: string;
-    email?: string;
-  } | null;
-};
-type ResidentUnitDescriptor = {
-  full: string;
-  tower: string;
-  apartment: string;
-};
 
-const revenueCategories: RevenueCategory[] = ["Taxa condominial", "Multa", "Juros por atraso", "Aluguel areas comuns"];
-const expenseCategories: ExpenseCategory[] = ["Funcionarios", "Energia", "Agua", "Manutencao", "Limpeza", "Seguranca", "Outros"];
-const monthFormatter = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit" });
 const inputClass =
   "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 const fieldLabelClass = "grid gap-2 text-sm font-medium text-slate-700";
 const panelClass =
   "rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur";
-const expenseCategoryMeta = {
-  Funcionarios: { label: "Pessoal", color: "#7c3aed", tone: "border-violet-200 bg-violet-50 text-violet-700", icon: Users },
-  Energia: { label: "Luz", color: "#f59e0b", tone: "border-amber-200 bg-amber-50 text-amber-700", icon: Zap },
-  Agua: { label: "Agua", color: "#06b6d4", tone: "border-cyan-200 bg-cyan-50 text-cyan-700", icon: Droplets },
-  Manutencao: { label: "Manutencao", color: "#10b981", tone: "border-emerald-200 bg-emerald-50 text-emerald-700", icon: Wrench },
-  Limpeza: { label: "Limpeza", color: "#6366f1", tone: "border-indigo-200 bg-indigo-50 text-indigo-700", icon: ShieldCheck },
-  Seguranca: { label: "Seguranca", color: "#ef4444", tone: "border-rose-200 bg-rose-50 text-rose-700", icon: ShieldCheck },
-  Outros: { label: "Outros", color: "#64748b", tone: "border-slate-200 bg-slate-100 text-slate-700", icon: Building2 },
-} as const;
-
-function formatCurrency(value: number) {
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "-";
-  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR");
-}
-
-function getMonthKey(value: string) {
-  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function formatMonthLabel(key: string) {
-  const [year, month] = key.split("-").map(Number);
-  return monthFormatter.format(new Date(year, month - 1, 1));
-}
-
-function formatMonthLongLabel(key: string) {
-  const [year, month] = key.split("-").map(Number);
-  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
-}
-
-function normalizeText(value: string | null | undefined) {
-  return (value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function normalizeUnit(value: string | null | undefined) {
-  return normalizeText(value).replace(/[^a-z0-9]/g, "");
-}
-
-function parseUnitDescriptor(value: string | null | undefined): ResidentUnitDescriptor {
-  const raw = normalizeText(value);
-  const apartmentMatch = raw.match(/ap\s*([a-z0-9-]+)/) ?? raw.match(/\b(\d{2,4}[a-z]?)\b/);
-  const apartment = apartmentMatch?.[1] ?? "";
-  const towerMatch = raw.match(/torre\s*([a-z0-9]+)/);
-  const tower = towerMatch?.[1] ?? "";
-
-  return {
-    full: normalizeUnit(value),
-    tower,
-    apartment: apartment.replace(/[^a-z0-9-]/g, ""),
-  };
-}
-
-function billMatchesResidentUnit(billUnit: string | null | undefined, residentUnits: ResidentUnitDescriptor[]) {
-  const billDescriptor = parseUnitDescriptor(billUnit);
-  if (!billDescriptor.full) return false;
-
-  return residentUnits.some((unit) => {
-    if (unit.full && unit.full === billDescriptor.full) return true;
-    if (unit.full && billDescriptor.full.includes(unit.full)) return true;
-    if (unit.full && unit.full.includes(billDescriptor.full)) return true;
-
-    const sameApartment = !!unit.apartment && unit.apartment === billDescriptor.apartment;
-    const towerCompatible = !unit.tower || !billDescriptor.tower || unit.tower === billDescriptor.tower;
-
-    return sameApartment && towerCompatible;
-  });
-}
-
-function readLocalMockAssignments(): Record<string, LocalMockAssignment> {
-  if (typeof window === "undefined") return {};
-
-  try {
-    const raw = window.localStorage.getItem("predio:assignments");
-    return raw ? (JSON.parse(raw) as Record<string, LocalMockAssignment>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function getUnitOptions(floors: Floor[]): UnitOption[] {
-  return floors
-    .flatMap((floor) =>
-      floor.apartments
-        .filter((apartment) => apartment.resident)
-        .map((apartment) => ({
-          value: `${floor.tower} - Ap ${apartment.number}`,
-          label: `${floor.tower} - Ap ${apartment.number} - ${apartment.resident?.name ?? "Morador"}`,
-          resident: apartment.resident?.name ?? "Morador nao informado",
-          email: apartment.resident?.email ?? "",
-        })),
-    )
-    .sort((a, b) => a.value.localeCompare(b.value, "pt-BR", { numeric: true }));
-}
-
-function getBillStatusMeta(status: FinanceBillStatus) {
-  switch (status) {
-    case "PAID":
-      return { label: "Pago", className: "border-emerald-200 bg-emerald-50 text-emerald-700" };
-    case "OVERDUE":
-      return { label: "Atrasado", className: "border-rose-200 bg-rose-50 text-rose-700" };
-    case "CANCELLED":
-      return { label: "Cancelado", className: "border-slate-200 bg-slate-100 text-slate-600" };
-    default:
-      return { label: "Em aberto", className: "border-amber-200 bg-amber-50 text-amber-700" };
-  }
-}
-
-function FinanceTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ color: string; name: string; value: number }>;
-  label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg">
-      <p className="font-semibold text-slate-700">{label}</p>
-      {payload.map((item) => (
-        <p key={item.name} style={{ color: item.color }} className="mt-1">
-          {item.name}: {formatCurrency(item.value)}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-function openBillPrintView(bill: FinanceBill) {
-  const win = window.open("", "_blank", "width=900,height=700");
-  if (!win) return;
-
-  win.document.write(`<!DOCTYPE html>
-    <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <title>${bill.bill_code}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 32px; color: #0f172a; }
-          .card { border: 1px solid #cbd5e1; border-radius: 20px; padding: 24px; }
-          .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #f8fafc; border: 1px solid #e2e8f0; font-size: 12px; font-weight: bold; }
-          .line { font-family: monospace; font-size: 20px; letter-spacing: 1px; margin: 18px 0; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
-          .label { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
-          .value { font-size: 16px; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="pill">Boleto mockado</div>
-          <h1>${bill.bill_code}</h1>
-          <p>Documento interno para cobranca condominial sem integracao bancaria.</p>
-          <div class="line">${bill.digitable_line}</div>
-          <div class="grid">
-            <div><div class="label">Unidade</div><div class="value">${bill.unit}</div></div>
-            <div><div class="label">Morador</div><div class="value">${bill.resident}</div></div>
-            <div><div class="label">Competencia</div><div class="value">${formatDate(bill.competence_date)}</div></div>
-            <div><div class="label">Vencimento</div><div class="value">${formatDate(bill.due_date)}</div></div>
-            <div><div class="label">Valor</div><div class="value">${formatCurrency(bill.amount)}</div></div>
-            <div><div class="label">Codigo de barras</div><div class="value">${bill.barcode}</div></div>
-          </div>
-          <p style="margin-top: 24px; font-size: 12px; color: #64748b;">Gerado para demonstracao do fluxo financeiro do condominio.</p>
-        </div>
-        <script>window.print()</script>
-      </body>
-    </html>`);
-  win.document.close();
-}
-
-function buildPixCode(bill: FinanceBill) {
-  return `PIX|OMNILAR|${bill.bill_code}|${bill.amount.toFixed(2)}|${bill.due_date}`;
-}
-
-function openReceiptPrintView(bill: FinanceBill) {
-  const win = window.open("", "_blank", "width=900,height=700");
-  if (!win) return;
-
-  win.document.write(`<!DOCTYPE html>
-    <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Recibo ${bill.bill_code}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 32px; color: #0f172a; }
-          .card { border: 1px solid #cbd5e1; border-radius: 20px; padding: 24px; }
-          .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #ecfdf5; border: 1px solid #bbf7d0; font-size: 12px; font-weight: bold; color: #047857; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
-          .label { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
-          .value { font-size: 16px; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="pill">Recibo de quitacao</div>
-          <h1>${bill.bill_code}</h1>
-          <p>Comprovante interno de pagamento da taxa condominial.</p>
-          <div class="grid">
-            <div><div class="label">Unidade</div><div class="value">${bill.unit}</div></div>
-            <div><div class="label">Morador</div><div class="value">${bill.resident}</div></div>
-            <div><div class="label">Competencia</div><div class="value">${formatDate(bill.competence_date)}</div></div>
-            <div><div class="label">Vencimento</div><div class="value">${formatDate(bill.due_date)}</div></div>
-            <div><div class="label">Valor pago</div><div class="value">${formatCurrency(bill.amount)}</div></div>
-            <div><div class="label">Baixa</div><div class="value">${bill.paid_at ? formatDate(bill.paid_at) : "Aguardando compensacao"}</div></div>
-          </div>
-        </div>
-        <script>window.print()</script>
-      </body>
-    </html>`);
-  win.document.close();
-}
-
-function openAccountabilityPrintView(report: AccountabilityReport) {
-  const win = window.open("", "_blank", "width=900,height=700");
-  if (!win) return;
-
-  const highlightLines = report.highlights
-    .map((item) => `<li>${item.description} - ${formatCurrency(item.amount)}</li>`)
-    .join("");
-
-  win.document.write(`<!DOCTYPE html>
-    <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Balancete ${report.label}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 32px; color: #0f172a; }
-          .card { border: 1px solid #cbd5e1; border-radius: 20px; padding: 24px; }
-          .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #eef2ff; border: 1px solid #c7d2fe; font-size: 12px; font-weight: bold; color: #4338ca; }
-          .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
-          .label { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
-          .value { font-size: 16px; font-weight: bold; }
-          ul { margin-top: 20px; padding-left: 20px; }
-          li { margin-bottom: 8px; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="pill">Prestacao de contas</div>
-          <h1>${report.label}</h1>
-          <p>Resumo financeiro agregado do condominio para consulta dos moradores.</p>
-          <div class="grid">
-            <div><div class="label">Receitas</div><div class="value">${formatCurrency(report.receitas)}</div></div>
-            <div><div class="label">Despesas</div><div class="value">${formatCurrency(report.despesas)}</div></div>
-            <div><div class="label">Saldo</div><div class="value">${formatCurrency(report.saldo)}</div></div>
-          </div>
-          <h2 style="margin-top: 24px;">Principais despesas</h2>
-          <ul>${highlightLines || "<li>Sem despesas registradas no periodo.</li>"}</ul>
-        </div>
-        <script>window.print()</script>
-      </body>
-    </html>`);
-  win.document.close();
-}
-
-function openInvoicesPrintView(report: AccountabilityReport) {
-  const win = window.open("", "_blank", "width=900,height=700");
-  if (!win) return;
-
-  const blocks = report.highlights
-    .map(
-      (item) => `
-        <div class="invoice">
-          <div class="label">Fornecedor / descricao</div>
-          <div class="value">${item.description}</div>
-          <div class="label" style="margin-top: 12px;">Categoria</div>
-          <div class="value">${item.category}</div>
-          <div class="label" style="margin-top: 12px;">Valor</div>
-          <div class="value">${formatCurrency(item.amount)}</div>
-          <div class="label" style="margin-top: 12px;">Documento</div>
-          <div class="value">${item.document_name ?? "NF digitalizada pendente"}</div>
-        </div>`,
-    )
-    .join("");
-
-  win.document.write(`<!DOCTYPE html>
-    <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Notas ${report.label}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 32px; color: #0f172a; }
-          .invoice { border: 1px solid #cbd5e1; border-radius: 20px; padding: 20px; margin-bottom: 16px; }
-          .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #eff6ff; border: 1px solid #bfdbfe; font-size: 12px; font-weight: bold; color: #1d4ed8; }
-          .label { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
-          .value { font-size: 16px; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="pill">Notas fiscais principais</div>
-        <h1>${report.label}</h1>
-        <p>Consulta agregada das maiores despesas do periodo para transparencia do condominio.</p>
-        ${blocks || "<div class='invoice'><div class='value'>Nenhuma nota principal registrada no periodo.</div></div>"}
-        <script>window.print()</script>
-      </body>
-    </html>`);
-  win.document.close();
-}
-
 export default function FinanceiroPage() {
   const user = getUser();
   const isResident = user?.role === "MORADOR";

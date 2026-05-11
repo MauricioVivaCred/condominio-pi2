@@ -1,6 +1,4 @@
 import {
-  ArrowDown, ArrowUp, ArrowUpDown,
-  ChevronLeft, ChevronRight,
   Filter, Pencil, Plus, Search, ShieldOff, ShieldCheck, Users, X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -9,11 +7,14 @@ import AppLayout from "../../features/layout/components/app-layout";
 import { getUser } from "../../features/auth/services/auth";
 import { canAddResident, getPlanLimits, PLAN_LABELS, type PlanId } from "../../config/plans";
 import { supabase } from "../../lib/supabase";
+import { fmtDate } from "../../lib/format";
 import {
   inviteUser, listUsers, listCondominiosBasic, setUserRemoved, updateUserRecord,
   type CondominioBrief, type InviteUserPayload, type UpdateUserPayload, type UserRecord,
 } from "../../features/dashboard/services/users";
 import { listBuildingApartmentOptions, type BuildingApartmentOption } from "../../features/predio/services/predio";
+import { SortTh, SortIcon } from "../../components/ui/sort-th";
+import { Pagination } from "../../components/ui/pagination";
 import {
   CAR_PLATE_INPUT_TITLE, CAR_PLATE_PATTERN,
   formatCarPlate, formatPhone, isCarPlateValid, isPhoneValid,
@@ -30,32 +31,8 @@ type SortKey = "name" | "email" | "role" | "status" | "created_at";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const inputCls = "px-3 py-2 border border-gray-200 rounded-lg bg-white text-gray-900 text-[13px] outline-none w-full focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition";
 
-function fmtDate(d: string | null) {
-  if (!d) return "—";
-  const date = new Date(d);
-  return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
-}
-
 function apartmentLabel(a: BuildingApartmentOption) {
   return `${a.number} · ${a.level}o andar`;
-}
-
-// ── Sort header ──────────────────────────────────────────────────────────────
-function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: "asc" | "desc" }) {
-  if (sortKey !== col) return <ArrowUpDown size={12} className="opacity-30 shrink-0" />;
-  return sortDir === "asc"
-    ? <ArrowUp size={12} className="text-indigo-600 shrink-0" />
-    : <ArrowDown size={12} className="text-indigo-600 shrink-0" />;
-}
-
-function SortTh({ col, label, sortKey, sortDir, onSort }: {
-  col: SortKey; label: string; sortKey: SortKey; sortDir: "asc" | "desc"; onSort: (c: SortKey) => void;
-}) {
-  return (
-    <th onClick={() => onSort(col)} className="px-3 py-3 border-b border-gray-100 cursor-pointer select-none whitespace-nowrap text-left text-xs font-semibold tracking-wider text-gray-500 uppercase hover:text-indigo-600 transition-colors">
-      <span className="flex items-center gap-1">{label} <SortIcon col={col} sortKey={sortKey} sortDir={sortDir} /></span>
-    </th>
-  );
 }
 
 // ── Filter Panel ─────────────────────────────────────────────────────────────
@@ -209,40 +186,6 @@ function FilterPanel({ open, onClose, initial, onApply, condominios, isMasterAdm
         </div>
       </div>
     </>
-  );
-}
-
-// ── Pagination ────────────────────────────────────────────────────────────────
-function Pagination({ page, totalPages, total, pageSize, setPage, setPageSize }: {
-  page: number; totalPages: number; total: number;
-  pageSize: number; setPage: (p: number) => void; setPageSize: (s: number) => void;
-}) {
-  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to = Math.min(page * pageSize, total);
-  return (
-    <div className="flex items-center justify-between gap-4 px-1 py-2 flex-wrap">
-      <span className="text-sm text-gray-500">{from}-{to} de {total}</span>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 text-sm text-gray-500">
-          <span>Itens por página:</span>
-          <select value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}
-            className="px-2 py-1 border border-gray-200 rounded-lg bg-white text-sm outline-none focus:border-indigo-400 cursor-pointer">
-            {[10, 20, 50].map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-1">
-          <button onClick={() => setPage(page - 1)} disabled={page <= 1}
-            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors">
-            <ChevronLeft size={15} />
-          </button>
-          <span className="text-sm text-gray-600 px-1">{page}/{totalPages}</span>
-          <button onClick={() => setPage(page + 1)} disabled={page >= totalPages}
-            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors">
-            <ChevronRight size={15} />
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 

@@ -1,5 +1,6 @@
 import { getUser } from "../../auth/services/auth";
 import { supabase } from "../../../lib/supabase";
+import { getCondominioUUIDAsync } from "../../../lib/condominio";
 
 export type ResourceBooking = {
   id: string;
@@ -38,23 +39,9 @@ function mapRow(row: BookingRow, profileMap: Map<string, string>): ResourceBooki
   };
 }
 
-async function getCondominioUUID(): Promise<string | null> {
-  const stored = getUser()?.condominioUUID;
-  if (stored) return stored;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data } = await supabase
-    .from("usuario_condominio")
-    .select("condominio_id")
-    .eq("user_id", user.id)
-    .eq("active", true)
-    .limit(1)
-    .maybeSingle();
-  return (data as any)?.condominio_id ?? null;
-}
 
 export async function listResourceBookings(): Promise<ResourceBooking[]> {
-  const condominioUUID = await getCondominioUUID();
+  const condominioUUID = await getCondominioUUIDAsync();
 
   let query = supabase
     .from("resource_bookings")

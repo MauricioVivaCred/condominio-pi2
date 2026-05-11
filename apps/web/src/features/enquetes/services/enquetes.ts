@@ -1,5 +1,7 @@
 import { getUser } from "../../auth/services/auth";
 import { supabase } from "../../../lib/supabase";
+import { requireSessionUser } from "../../../lib/auth-helpers";
+import { getCondominioUUIDAsync } from "../../../lib/condominio";
 
 export type AssemblyType = "ORDINARIA" | "EXTRAORDINARIA";
 export type AssemblyMode = "DIGITAL" | "HIBRIDA" | "PRESENCIAL";
@@ -117,15 +119,6 @@ type PollCommentRow = {
   created_by_name: string;
 };
 
-async function requireSessionUser() {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
-    throw new Error("Sessao invalida. Faca login novamente.");
-  }
-
-  return data.user;
-}
-
 function mapPolls(rows: PollRow[], options: PollOptionRow[], votes: PollVoteRow[], comments: PollCommentRow[]): Poll[] {
   return rows.map((row) => {
     const pollOptions = options
@@ -174,23 +167,8 @@ function mapPolls(rows: PollRow[], options: PollOptionRow[], votes: PollVoteRow[
   });
 }
 
-async function getCondominioUUID(): Promise<string | null> {
-  const stored = getUser()?.condominioUUID;
-  if (stored) return stored;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data } = await supabase
-    .from("usuario_condominio")
-    .select("condominio_id")
-    .eq("user_id", user.id)
-    .eq("active", true)
-    .limit(1)
-    .maybeSingle();
-  return (data as any)?.condominio_id ?? null;
-}
-
 export async function listPolls(): Promise<Poll[]> {
-  const condominioUUID = await getCondominioUUID();
+  const condominioUUID = await getCondominioUUIDAsync();
 
   let pollsQuery = supabase
     .from("polls")

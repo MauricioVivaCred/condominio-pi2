@@ -1,5 +1,8 @@
 import { getUser } from "../../auth/services/auth";
 import { supabase } from "../../../lib/supabase";
+import { requireSessionUser } from "../../../lib/auth-helpers";
+import { getStoragePathFromPublicUrl } from "../../../lib/file";
+import { getCondominioUUIDAsync } from "../../../lib/condominio";
 
 export type DeliveryStatus = "RECEBIDA" | "AVISADA" | "RETIRADA";
 
@@ -101,46 +104,9 @@ function mapDelivery(row: DeliveryRow, apartmentMap: Map<string, string>): Deliv
   };
 }
 
-function getStoragePathFromPublicUrl(url: string | null | undefined, bucket: string): string | null {
-  if (!url) return null;
-
-  try {
-    const parsed = new URL(url);
-    const marker = `/object/public/${bucket}/`;
-    const index = parsed.pathname.indexOf(marker);
-    if (index === -1) return null;
-    return decodeURIComponent(parsed.pathname.slice(index + marker.length));
-  } catch {
-    return null;
-  }
-}
-
-async function requireSessionUser() {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) {
-    throw new Error("Sessao invalida. Faca login novamente.");
-  }
-
-  return data.user;
-}
-
-async function getCondominioUUID(): Promise<string | null> {
-  const stored = getUser()?.condominioUUID;
-  if (stored) return stored;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data } = await supabase
-    .from("usuario_condominio")
-    .select("condominio_id")
-    .eq("user_id", user.id)
-    .eq("active", true)
-    .limit(1)
-    .maybeSingle();
-  return (data as any)?.condominio_id ?? null;
-}
 
 export async function listDeliveryApartmentOptions(): Promise<DeliveryApartmentOption[]> {
-  const condominioUUID = await getCondominioUUID();
+  const condominioUUID = await getCondominioUUIDAsync();
 
   let query = supabase
     .from("condo_apartments")
@@ -177,7 +143,7 @@ export async function listDeliveryApartmentOptions(): Promise<DeliveryApartmentO
 export async function listDeliveries(): Promise<Delivery[]> {
   const authUser = await requireSessionUser();
   const currentUser = getUser();
-  const condominioUUID = await getCondominioUUID();
+  const condominioUUID = await getCondominioUUIDAsync();
 
   let query = supabase
     .from("deliveries")

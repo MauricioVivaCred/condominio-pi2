@@ -1,6 +1,4 @@
 import {
-  ArrowDown, ArrowUp, ArrowUpDown,
-  ChevronLeft, ChevronRight,
   Filter, Megaphone, Pencil, Pin, PinOff, Plus, Search, ThumbsUp, Trash2, X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -12,6 +10,8 @@ import {
 } from "../../features/avisos/services/avisos";
 import { type AvisoSortKey as SortKey } from "../../features/avisos/constants/avisos.constants";
 import { useAvisos, isExpiredDate } from "../../features/avisos/hooks/use-avisos";
+import { SortTh, SortIcon } from "../../components/ui/sort-th";
+import { Pagination } from "../../components/ui/pagination";
 import { AvisoCriarModal } from "../../features/avisos/components/aviso-criar-modal";
 import { AvisoEditarModal } from "../../features/avisos/components/aviso-editar-modal";
 import { AvisoDetalheModal } from "../../features/avisos/components/aviso-detalhe-modal";
@@ -30,28 +30,6 @@ function fmt(d: string | null) {
 }
 
 // ── Sort header ─────────────────────────────────────────────────────────────
-function SortIcon({ col, sortKey, sortDir }: { col: SortKey; sortKey: SortKey; sortDir: "asc" | "desc" }) {
-  if (sortKey !== col) return <ArrowUpDown size={12} className="opacity-30 shrink-0" />;
-  return sortDir === "asc"
-    ? <ArrowUp size={12} className="text-indigo-600 shrink-0" />
-    : <ArrowDown size={12} className="text-indigo-600 shrink-0" />;
-}
-
-function SortTh({ col, label, sortKey, sortDir, onSort }: {
-  col: SortKey; label: string; sortKey: SortKey; sortDir: "asc" | "desc"; onSort: (c: SortKey) => void;
-}) {
-  return (
-    <th
-      onClick={() => onSort(col)}
-      className="px-3 py-3 border-b border-gray-100 cursor-pointer select-none whitespace-nowrap text-left text-xs font-semibold tracking-wider text-gray-500 uppercase hover:text-indigo-600 transition-colors"
-    >
-      <span className="flex items-center gap-1">
-        {label} <SortIcon col={col} sortKey={sortKey} sortDir={sortDir} />
-      </span>
-    </th>
-  );
-}
-
 // ── Filter Panel ─────────────────────────────────────────────────────────────
 type FilterDraft = {
   filterTipo: AvisoTipo[];
@@ -223,50 +201,6 @@ function FilterPanel({ open, onClose, initial, onApply }: {
         </div>
       </div>
     </>
-  );
-}
-
-// ── Pagination ────────────────────────────────────────────────────────────────
-function Pagination({ page, totalPages, totalFiltered, pageSize, setPage, setPageSize }: {
-  page: number; totalPages: number; totalFiltered: number;
-  pageSize: number; setPage: (p: number) => void; setPageSize: (s: number) => void;
-}) {
-  const from = totalFiltered === 0 ? 0 : (page - 1) * pageSize + 1;
-  const to = Math.min(page * pageSize, totalFiltered);
-
-  return (
-    <div className="flex items-center justify-between gap-4 px-1 py-2 flex-wrap">
-      <span className="text-sm text-gray-500">{from}-{to} de {totalFiltered}</span>
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 text-sm text-gray-500">
-          <span>Itens por página:</span>
-          <select
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-            className="px-2 py-1 border border-gray-200 rounded-lg bg-white text-sm text-gray-700 outline-none focus:border-indigo-400 cursor-pointer"
-          >
-            {[10, 20, 50].map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setPage(page - 1)}
-            disabled={page <= 1}
-            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-          >
-            <ChevronLeft size={15} />
-          </button>
-          <span className="text-sm text-gray-600 px-1">{page}/{totalPages}</span>
-          <button
-            onClick={() => setPage(page + 1)}
-            disabled={page >= totalPages}
-            className="p-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-colors"
-          >
-            <ChevronRight size={15} />
-          </button>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -493,7 +427,7 @@ export default function ListaAvisos() {
               <Pagination
                 page={safePage}
                 totalPages={totalPages}
-                totalFiltered={totalFiltered}
+                total={totalFiltered}
                 pageSize={pageSize}
                 setPage={setPage}
                 setPageSize={setPageSize}
@@ -565,7 +499,7 @@ export default function ListaAvisos() {
               <Pagination
                 page={safePage}
                 totalPages={totalPages}
-                totalFiltered={totalFiltered}
+                total={totalFiltered}
                 pageSize={pageSize}
                 setPage={setPage}
                 setPageSize={setPageSize}

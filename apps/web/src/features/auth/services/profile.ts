@@ -1,4 +1,5 @@
 import { supabase } from "../../../lib/supabase";
+import { getStoragePathFromPublicUrl } from "../../../lib/file";
 import {
   getUser,
   setStoredUser,
@@ -160,19 +161,6 @@ function getFileExtension(file: File): string {
   return "jpg";
 }
 
-function getStoragePathFromPublicUrl(url: string | null | undefined, bucket: string): string | null {
-  if (!url) return null;
-
-  try {
-    const parsed = new URL(url);
-    const marker = `/object/public/${bucket}/`;
-    const index = parsed.pathname.indexOf(marker);
-    if (index === -1) return null;
-    return decodeURIComponent(parsed.pathname.slice(index + marker.length));
-  } catch {
-    return null;
-  }
-}
 
 async function updateAvatarUrl(userId: string, avatarUrl: string | null): Promise<User> {
   const profileUpdate = await supabase
