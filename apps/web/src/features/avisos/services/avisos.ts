@@ -1,4 +1,4 @@
-import { supabase } from "../../../lib/supabase";
+import { supabase, getSupabaseAdmin } from "../../../lib/supabase";
 import { getUser } from "../../auth/services/auth";
 import { getCondominioUUIDAsync } from "../../../lib/condominio";
 
@@ -39,9 +39,10 @@ export type MoradorOption = {
 export async function listMoradoresDoCondominio(condominioUUID: string): Promise<MoradorOption[]> {
   const { data: { user: authUser } } = await supabase.auth.getUser();
   const currentUserId = authUser?.id ?? null;
+  const admin = getSupabaseAdmin();
 
-  // Busca os user_ids do condomínio
-  const { data: ucData, error: ucError } = await supabase
+  // Usa admin para bypassar RLS — GADM só enxergaria o próprio registro com cliente normal
+  const { data: ucData, error: ucError } = await admin
     .from("usuario_condominio")
     .select("user_id")
     .eq("condominio_id", condominioUUID)
@@ -55,8 +56,7 @@ export async function listMoradoresDoCondominio(condominioUUID: string): Promise
 
   if (userIds.length === 0) return [];
 
-  // Busca os perfis separadamente
-  const { data: profilesData } = await supabase
+  const { data: profilesData } = await admin
     .from("profiles")
     .select("id, name, email")
     .in("id", userIds);

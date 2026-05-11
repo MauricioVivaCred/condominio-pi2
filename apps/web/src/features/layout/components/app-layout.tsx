@@ -28,7 +28,7 @@ import {
   Waves,
   X,
 } from "lucide-react";
-import { logout, getUser } from "../../auth/services/auth";
+import { logout, getUser, updateUser } from "../../auth/services/auth";
 import { hasFeature, type PlanId } from "../../../config/plans";
 import { supabase } from "../../../lib/supabase";
 import { refreshStoredUser } from "../../auth/services/profile";
@@ -152,8 +152,10 @@ export default function AppLayout({ title, children }: { title: string; children
     if (u?.condominioUUID) {
       supabase.from("condominios").select("plan, name").eq("id", u.condominioUUID).single()
         .then(({ data }) => {
-          setCondPlan((data?.plan ?? null) as PlanId);
+          const plan = (data?.plan ?? null) as PlanId;
+          setCondPlan(plan);
           setCondName((data?.name ?? null) as string | null);
+          updateUser({ plan });
         });
     }
   }, [user?.condominioUUID]);

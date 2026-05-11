@@ -3,11 +3,10 @@ import {
   Check,
   ChevronDown,
   ChevronUp,
-  CreditCard,
-  Infinity as InfinityIcon,
   Pencil,
   Users,
   UserCheck,
+  Infinity as InfinityIcon,
   X,
 } from "lucide-react";
 import AppLayout from "../../features/layout/components/app-layout";
@@ -18,7 +17,7 @@ import { PLAN_DEFINITIONS, type PlanDefinition } from "../../config/plans";
 type EditablePlan = {
   id: string;
   label: string;
-  maxResidents: number | null; // null = infinito
+  maxResidents: number | null;
   maxAdmins: number | null;
   monthlyPrice: string;
   annualPrice: string;
@@ -49,12 +48,12 @@ function planToEditable(p: PlanDefinition): EditablePlan {
 }
 
 const PLAN_COLORS: Record<string, { badge: string; ring: string; header: string }> = {
-  go:    { badge: "bg-sky-100 text-sky-700",     ring: "ring-sky-200",    header: "from-sky-50 to-white" },
+  go:    { badge: "bg-sky-100 text-sky-700",       ring: "ring-sky-200",    header: "from-sky-50 to-white" },
   plus:  { badge: "bg-indigo-100 text-indigo-700", ring: "ring-indigo-200", header: "from-indigo-50 to-white" },
   ultra: { badge: "bg-violet-100 text-violet-700", ring: "ring-violet-200", header: "from-violet-50 to-white" },
 };
 
-// ─── Modal de edição ──────────────────────────────────────────────────────────
+// ─── Modal de edição do plano ─────────────────────────────────────────────────
 
 function EditPlanModal({
   plan,
@@ -69,10 +68,6 @@ function EditPlanModal({
 
   const inputCls = "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition";
   const labelCls = "block text-xs font-semibold text-slate-500 mb-1";
-
-  function field(key: keyof EditablePlan, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
-  }
 
   function toggleFeature(key: string) {
     setForm((f) => ({ ...f, features: { ...f.features, [key]: !f.features[key] } }));
@@ -89,13 +84,11 @@ function EditPlanModal({
         </div>
 
         <div className="grid gap-5 px-6 py-5">
-          {/* Nome */}
           <div>
             <label className={labelCls}>Nome do plano</label>
-            <input className={inputCls} value={form.label} onChange={(e) => field("label", e.target.value)} />
+            <input className={inputCls} value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} />
           </div>
 
-          {/* Limites */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Máx. moradores (vazio = ilimitado)</label>
@@ -121,7 +114,6 @@ function EditPlanModal({
             </div>
           </div>
 
-          {/* Preços */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Preço mensal (R$)</label>
@@ -132,7 +124,7 @@ function EditPlanModal({
                 step={0.01}
                 placeholder="Sob consulta"
                 value={form.monthlyPrice}
-                onChange={(e) => field("monthlyPrice", e.target.value)}
+                onChange={(e) => setForm((f) => ({ ...f, monthlyPrice: e.target.value }))}
               />
             </div>
             <div>
@@ -144,12 +136,11 @@ function EditPlanModal({
                 step={0.01}
                 placeholder="Sob consulta"
                 value={form.annualPrice}
-                onChange={(e) => field("annualPrice", e.target.value)}
+                onChange={(e) => setForm((f) => ({ ...f, annualPrice: e.target.value }))}
               />
             </div>
           </div>
 
-          {/* Features */}
           <div>
             <p className={labelCls}>Funcionalidades incluídas</p>
             <div className="grid grid-cols-2 gap-2 mt-1">
@@ -158,9 +149,7 @@ function EditPlanModal({
                   <div
                     onClick={() => toggleFeature(key)}
                     className={`w-4 h-4 rounded flex items-center justify-center border transition-colors cursor-pointer ${
-                      form.features[key]
-                        ? "bg-indigo-600 border-indigo-600"
-                        : "bg-white border-slate-300"
+                      form.features[key] ? "bg-indigo-600 border-indigo-600" : "bg-white border-slate-300"
                     }`}
                   >
                     {form.features[key] && <Check size={11} className="text-white" />}
@@ -193,33 +182,22 @@ function EditPlanModal({
 
 // ─── Card de plano ─────────────────────────────────────────────────────────────
 
-function PlanCard({
-  plan,
-  onEdit,
-}: {
-  plan: EditablePlan;
-  onEdit: () => void;
-}) {
+function PlanCard({ plan, onEdit }: { plan: EditablePlan; onEdit: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const colors = PLAN_COLORS[plan.id] ?? PLAN_COLORS.go;
 
   const monthlyDisplay = plan.monthlyPrice
     ? Number(plan.monthlyPrice).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     : "Sob consulta";
-  const annualMonthly = plan.annualPrice
-    ? (Number(plan.annualPrice) / 12).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-    : null;
-  const annualTotal = plan.annualPrice
-    ? Number(plan.annualPrice).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-    : null;
+  const annualMonthly = plan.annualPrice ? (Number(plan.annualPrice) / 12).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : null;
+  const annualTotal = plan.annualPrice ? Number(plan.annualPrice).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : null;
 
   const enabledFeatures = Object.entries(plan.features).filter(([, v]) => v);
   const disabledFeatures = Object.entries(plan.features).filter(([, v]) => !v);
 
   return (
     <div className={`rounded-3xl border bg-white shadow-sm ring-1 ${colors.ring} overflow-hidden`}>
-      {/* Header */}
-      <div className={`bg-gradient-to-b ${colors.header} px-6 py-5 border-b border-slate-100`}>
+      <div className={`bg-linear-to-b ${colors.header} px-6 py-5 border-b border-slate-100`}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${colors.badge} mb-2`}>
@@ -230,27 +208,21 @@ function PlanCard({
           <button
             onClick={onEdit}
             className="shrink-0 rounded-xl border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors shadow-sm"
-            title="Editar plano"
           >
             <Pencil size={15} />
           </button>
         </div>
-
-        {/* Preço */}
         <div className="mt-3">
           <div className="flex items-baseline gap-1">
             <span className="text-3xl font-bold text-slate-900">{monthlyDisplay}</span>
             {plan.monthlyPrice && <span className="text-sm text-slate-500">/mês</span>}
           </div>
           {annualMonthly && annualTotal && (
-            <p className="mt-1 text-xs text-slate-500">
-              ou {annualMonthly}/mês no plano anual ({annualTotal}/ano)
-            </p>
+            <p className="mt-1 text-xs text-slate-500">ou {annualMonthly}/mês no plano anual ({annualTotal}/ano)</p>
           )}
         </div>
       </div>
 
-      {/* Limites */}
       <div className="grid grid-cols-2 divide-x divide-slate-100 border-b border-slate-100">
         <div className="flex flex-col items-center gap-1 px-4 py-3">
           <Users size={15} className="text-slate-400" />
@@ -268,7 +240,6 @@ function PlanCard({
         </div>
       </div>
 
-      {/* Funcionalidades */}
       <div className="px-6 py-4">
         <div className="space-y-1.5">
           {enabledFeatures.map(([key]) => (
@@ -307,7 +278,7 @@ export default function PlanosPage() {
   const [editing, setEditing] = useState<EditablePlan | null>(null);
   const [saved, setSaved] = useState(false);
 
-  function handleSave(updated: EditablePlan) {
+  function handleSavePlan(updated: EditablePlan) {
     setPlans((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     setEditing(null);
     setSaved(true);
@@ -318,32 +289,18 @@ export default function PlanosPage() {
     <AppLayout title="Configuração de Planos">
       <div className="max-w-5xl mx-auto grid gap-6">
 
-        {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Planos disponíveis</h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Configure limites, preços e funcionalidades de cada plano.
-            </p>
+            <p className="text-sm text-slate-500 mt-0.5">Configure limites e funcionalidades de cada plano.</p>
           </div>
           {saved && (
             <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700">
-              <Check size={15} />
-              Alterações salvas
+              <Check size={15} /> Alterações salvas
             </div>
           )}
         </div>
 
-        {/* Aviso sobre persistência */}
-        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <CreditCard size={16} className="shrink-0 mt-0.5 text-amber-500" />
-          <p>
-            As alterações feitas aqui são refletidas na interface de todos os condomínios em tempo real.
-            Mudanças nos limites não afetam condomínios já contratados retroativamente.
-          </p>
-        </div>
-
-        {/* Cards */}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => (
             <PlanCard key={plan.id} plan={plan} onEdit={() => setEditing(plan)} />
@@ -352,12 +309,9 @@ export default function PlanosPage() {
       </div>
 
       {editing && (
-        <EditPlanModal
-          plan={editing}
-          onSave={handleSave}
-          onClose={() => setEditing(null)}
-        />
+        <EditPlanModal plan={editing} onSave={handleSavePlan} onClose={() => setEditing(null)} />
       )}
+
     </AppLayout>
   );
 }

@@ -16,6 +16,7 @@ export type User = {
   condominioName?: string;
   /** UUID do condomínio no Supabase — usado para filtrar queries Supabase */
   condominioUUID?: string | null;
+  plan?: string | null;
   residentType?: ResidentType;
   status?: UserStatus;
   carPlate?: string;
@@ -29,6 +30,7 @@ export type CondominioOption = {
   role: UserRole;
   /** UUID do Supabase — preenchido no fluxo sem backend */
   uuid?: string;
+  plan?: string | null;
 };
 
 export type PendingUser = Omit<User, "condominioUUID" | "condominioName" | "condominioId">;
@@ -141,6 +143,10 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw new Error(error.message);
 
+  // Seta a sessão no client antes de qualquer query com RLS
+  await supabase.auth.setSession({ access_token: data.session.access_token, refresh_token: data.session.refresh_token });
+  localStorage.setItem("token", data.session.access_token);
+
   const [profileResult, ucResult] = await Promise.all([
     supabase
       .from("profiles")
@@ -157,10 +163,6 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
   const profile = profileResult.data;
   type UcRow = { condominio_id: string; role: string };
   const ucRows = (ucResult.data ?? []) as UcRow[];
-
-  // Bloqueia login de usuários desabilitados
-
-  localStorage.setItem("token", data.session.access_token);
 
   // Role do perfil ou fallback via user_metadata (para MASTER_ADMIN sem RLS)
   const resolvedRole = profile?.role ?? (data.user.user_metadata?.role as string | undefined);
@@ -186,20 +188,24 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
     return { requiresSelection: false, user };
   }
 
-  // Busca dados dos condomínios vinculados (nome + status)
+  // Busca dados dos condomínios vinculados (nome + status + plano)
   const uuidsAll = ucRows.map((r) => r.condominio_id);
   const { data: condData } = await supabase
     .from("condominios")
-    .select("id, name, active")
+    .select("id, name, active, plan")
     .in("id", uuidsAll);
-  const condMap = new Map<string, { name: string; active: boolean }>(
-    ((condData ?? []) as { id: string; name: string; active: boolean }[]).map((c) => [c.id, { name: c.name, active: c.active }]),
+  const condMap = new Map<string, { name: string; active: boolean; plan: string | null }>(
+    ((condData ?? []) as { id: string; name: string; active: boolean; plan: string | null }[]).map((c) => [c.id, { name: c.name, active: c.active, plan: c.plan }]),
   );
 
   // Filtra apenas condomínios ativos
+  // Se condMap estiver vazio (RLS bloqueou a leitura), assume ativo por padrão
   const activeUcRows = resolvedRole === "MASTER_ADMIN"
     ? ucRows
-    : ucRows.filter((r) => condMap.get(r.condominio_id)?.active !== false);
+    : ucRows.filter((r) => {
+        const cond = condMap.get(r.condominio_id);
+        return cond === undefined ? true : cond.active !== false;
+      });
 
   if (activeUcRows.length === 0 && resolvedRole !== "MASTER_ADMIN") {
     await supabase.auth.signOut();
@@ -215,6 +221,7 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
         uuid: row.condominio_id,
         name: condMap.get(row.condominio_id)?.name ?? `Condomínio ${idx + 1}`,
         role: (row.role as UserRole) ?? (profile?.role as UserRole) ?? "MORADOR",
+        plan: condMap.get(row.condominio_id)?.plan ?? null,
       }))
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"))
       .map((c, idx) => ({ ...c, id: idx + 1 }));
@@ -241,7 +248,9 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
   }
 
   const ucRow = activeUcRows[0] ?? null;
-  const condominioName = ucRow ? condMap.get(ucRow.condominio_id)?.name : undefined;
+  const condInfo = ucRow ? condMap.get(ucRow.condominio_id) : undefined;
+  const condominioName = condInfo?.name;
+  const condPlan = condInfo?.plan ?? null;
 
   const user: User = {
     id: data.user.id,
@@ -252,6 +261,7 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
     condominioId: null,
     condominioUUID: ucRow?.condominio_id ?? null,
     condominioName,
+    plan: condPlan,
     residentType: profile?.resident_type ?? undefined,
     status: profile?.status ?? undefined,
     carPlate: profile?.car_plate ?? undefined,
@@ -271,6 +281,7 @@ export function finalizeSupabaseLogin(pendingUser: PendingUser, option: Condomin
     condominioId: null,
     condominioUUID: option.uuid ?? null,
     condominioName: option.name,
+    plan: option.plan ?? null,
   };
   setStoredUser(user);
   return user;
@@ -335,7 +346,7 @@ export async function checkOAuthSession(): Promise<User | null> {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("name, role, phone, car_plate, pets_count, resident_type, status, removed, avatar_url")
+    .select("name, role, phone, car_plate, pets_count, resident_type, status, avatar_url")
     .eq("id", session.user.id)
     .single();
 
