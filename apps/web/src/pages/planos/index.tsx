@@ -1,24 +1,31 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Check,
   ChevronDown,
   ChevronUp,
-  CreditCard,
-  Infinity as InfinityIcon,
   Pencil,
   Users,
   UserCheck,
+  Infinity as InfinityIcon,
   X,
+  Loader2,
 } from "lucide-react";
 import AppLayout from "../../features/layout/components/app-layout";
 import { PLAN_DEFINITIONS, type PlanDefinition } from "../../config/plans";
+import { supabase } from "../../lib/supabase";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
+
+type CondominioRow = {
+  id: string;
+  name: string;
+  plan: string | null;
+};
 
 type EditablePlan = {
   id: string;
   label: string;
-  maxResidents: number | null; // null = infinito
+  maxResidents: number | null;
   maxAdmins: number | null;
   monthlyPrice: string;
   annualPrice: string;
@@ -49,12 +56,12 @@ function planToEditable(p: PlanDefinition): EditablePlan {
 }
 
 const PLAN_COLORS: Record<string, { badge: string; ring: string; header: string }> = {
-  go:    { badge: "bg-sky-100 text-sky-700",     ring: "ring-sky-200",    header: "from-sky-50 to-white" },
+  go:    { badge: "bg-sky-100 text-sky-700",       ring: "ring-sky-200",    header: "from-sky-50 to-white" },
   plus:  { badge: "bg-indigo-100 text-indigo-700", ring: "ring-indigo-200", header: "from-indigo-50 to-white" },
   ultra: { badge: "bg-violet-100 text-violet-700", ring: "ring-violet-200", header: "from-violet-50 to-white" },
 };
 
-// ─── Modal de edição ──────────────────────────────────────────────────────────
+// ─── Modal de edição do plano ─────────────────────────────────────────────────
 
 function EditPlanModal({
   plan,
@@ -69,10 +76,6 @@ function EditPlanModal({
 
   const inputCls = "h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition";
   const labelCls = "block text-xs font-semibold text-slate-500 mb-1";
-
-  function field(key: keyof EditablePlan, value: string) {
-    setForm((f) => ({ ...f, [key]: value }));
-  }
 
   function toggleFeature(key: string) {
     setForm((f) => ({ ...f, features: { ...f.features, [key]: !f.features[key] } }));
@@ -89,13 +92,11 @@ function EditPlanModal({
         </div>
 
         <div className="grid gap-5 px-6 py-5">
-          {/* Nome */}
           <div>
             <label className={labelCls}>Nome do plano</label>
-            <input className={inputCls} value={form.label} onChange={(e) => field("label", e.target.value)} />
+            <input className={inputCls} value={form.label} onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))} />
           </div>
 
-          {/* Limites */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Máx. moradores (vazio = ilimitado)</label>
@@ -121,7 +122,6 @@ function EditPlanModal({
             </div>
           </div>
 
-          {/* Preços */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Preço mensal (R$)</label>
@@ -132,7 +132,7 @@ function EditPlanModal({
                 step={0.01}
                 placeholder="Sob consulta"
                 value={form.monthlyPrice}
-                onChange={(e) => field("monthlyPrice", e.target.value)}
+                onChange={(e) => setForm((f) => ({ ...f, monthlyPrice: e.target.value }))}
               />
             </div>
             <div>
@@ -144,12 +144,11 @@ function EditPlanModal({
                 step={0.01}
                 placeholder="Sob consulta"
                 value={form.annualPrice}
-                onChange={(e) => field("annualPrice", e.target.value)}
+                onChange={(e) => setForm((f) => ({ ...f, annualPrice: e.target.value }))}
               />
             </div>
           </div>
 
-          {/* Features */}
           <div>
             <p className={labelCls}>Funcionalidades incluídas</p>
             <div className="grid grid-cols-2 gap-2 mt-1">
@@ -158,9 +157,7 @@ function EditPlanModal({
                   <div
                     onClick={() => toggleFeature(key)}
                     className={`w-4 h-4 rounded flex items-center justify-center border transition-colors cursor-pointer ${
-                      form.features[key]
-                        ? "bg-indigo-600 border-indigo-600"
-                        : "bg-white border-slate-300"
+                      form.features[key] ? "bg-indigo-600 border-indigo-600" : "bg-white border-slate-300"
                     }`}
                   >
                     {form.features[key] && <Check size={11} className="text-white" />}
@@ -191,35 +188,111 @@ function EditPlanModal({
   );
 }
 
+// ─── Modal de atribuição de plano a condomínio ────────────────────────────────
+
+function AssignPlanModal({
+  condominios,
+  onClose,
+  onSaved,
+}: {
+  condominios: CondominioRow[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [assignments, setAssignments] = useState<Record<string, string>>(() =>
+    Object.fromEntries(condominios.map((c) => [c.id, c.plan ?? "go"])),
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSave() {
+    setSaving(true);
+    setError("");
+    try {
+      for (const [condId, planId] of Object.entries(assignments)) {
+        const { error: err } = await supabase
+          .from("condominios")
+          .update({ plan: planId })
+          .eq("id", condId);
+        if (err) throw new Error(err.message);
+      }
+      onSaved();
+      onClose();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erro ao salvar.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white shadow-2xl overflow-y-auto max-h-[90vh]">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <h3 className="text-base font-semibold text-slate-900">Atribuir planos aos condomínios</h3>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 grid gap-3">
+          {condominios.map((c) => (
+            <div key={c.id} className="flex items-center justify-between gap-3">
+              <span className="text-sm text-slate-700 flex-1 truncate">{c.name}</span>
+              <select
+                value={assignments[c.id] ?? "go"}
+                onChange={(e) => setAssignments((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-800 outline-none focus:border-indigo-400 transition"
+              >
+                {Object.values(PLAN_DEFINITIONS).map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
+                ))}
+              </select>
+            </div>
+          ))}
+        </div>
+
+        {error && <p className="px-6 text-sm text-red-500">{error}</p>}
+
+        <div className="flex justify-end gap-3 border-t border-slate-100 px-6 py-4">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-sm font-semibold text-white transition-colors flex items-center gap-2"
+          >
+            {saving && <Loader2 size={14} className="animate-spin" />}
+            Salvar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Card de plano ─────────────────────────────────────────────────────────────
 
-function PlanCard({
-  plan,
-  onEdit,
-}: {
-  plan: EditablePlan;
-  onEdit: () => void;
-}) {
+function PlanCard({ plan, onEdit }: { plan: EditablePlan; onEdit: () => void }) {
   const [expanded, setExpanded] = useState(false);
   const colors = PLAN_COLORS[plan.id] ?? PLAN_COLORS.go;
 
   const monthlyDisplay = plan.monthlyPrice
     ? Number(plan.monthlyPrice).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
     : "Sob consulta";
-  const annualMonthly = plan.annualPrice
-    ? (Number(plan.annualPrice) / 12).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-    : null;
-  const annualTotal = plan.annualPrice
-    ? Number(plan.annualPrice).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
-    : null;
+  const annualMonthly = plan.annualPrice ? (Number(plan.annualPrice) / 12).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : null;
+  const annualTotal = plan.annualPrice ? Number(plan.annualPrice).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : null;
 
   const enabledFeatures = Object.entries(plan.features).filter(([, v]) => v);
   const disabledFeatures = Object.entries(plan.features).filter(([, v]) => !v);
 
   return (
     <div className={`rounded-3xl border bg-white shadow-sm ring-1 ${colors.ring} overflow-hidden`}>
-      {/* Header */}
-      <div className={`bg-gradient-to-b ${colors.header} px-6 py-5 border-b border-slate-100`}>
+      <div className={`bg-linear-to-b ${colors.header} px-6 py-5 border-b border-slate-100`}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${colors.badge} mb-2`}>
@@ -230,27 +303,21 @@ function PlanCard({
           <button
             onClick={onEdit}
             className="shrink-0 rounded-xl border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50 hover:text-indigo-600 transition-colors shadow-sm"
-            title="Editar plano"
           >
             <Pencil size={15} />
           </button>
         </div>
-
-        {/* Preço */}
         <div className="mt-3">
           <div className="flex items-baseline gap-1">
             <span className="text-3xl font-bold text-slate-900">{monthlyDisplay}</span>
             {plan.monthlyPrice && <span className="text-sm text-slate-500">/mês</span>}
           </div>
           {annualMonthly && annualTotal && (
-            <p className="mt-1 text-xs text-slate-500">
-              ou {annualMonthly}/mês no plano anual ({annualTotal}/ano)
-            </p>
+            <p className="mt-1 text-xs text-slate-500">ou {annualMonthly}/mês no plano anual ({annualTotal}/ano)</p>
           )}
         </div>
       </div>
 
-      {/* Limites */}
       <div className="grid grid-cols-2 divide-x divide-slate-100 border-b border-slate-100">
         <div className="flex flex-col items-center gap-1 px-4 py-3">
           <Users size={15} className="text-slate-400" />
@@ -268,7 +335,6 @@ function PlanCard({
         </div>
       </div>
 
-      {/* Funcionalidades */}
       <div className="px-6 py-4">
         <div className="space-y-1.5">
           {enabledFeatures.map(([key]) => (
@@ -305,9 +371,16 @@ export default function PlanosPage() {
     Object.values(PLAN_DEFINITIONS).map(planToEditable),
   );
   const [editing, setEditing] = useState<EditablePlan | null>(null);
+  const [condominios, setCondominios] = useState<CondominioRow[]>([]);
+  const [assignOpen, setAssignOpen] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  function handleSave(updated: EditablePlan) {
+  useEffect(() => {
+    supabase.from("condominios").select("id, name, plan").order("name")
+      .then(({ data }) => setCondominios((data ?? []) as CondominioRow[]));
+  }, []);
+
+  function handleSavePlan(updated: EditablePlan) {
     setPlans((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     setEditing(null);
     setSaved(true);
@@ -318,32 +391,26 @@ export default function PlanosPage() {
     <AppLayout title="Configuração de Planos">
       <div className="max-w-5xl mx-auto grid gap-6">
 
-        {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Planos disponíveis</h2>
-            <p className="text-sm text-slate-500 mt-0.5">
-              Configure limites, preços e funcionalidades de cada plano.
-            </p>
+            <p className="text-sm text-slate-500 mt-0.5">Configure limites e funcionalidades de cada plano.</p>
           </div>
-          {saved && (
-            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700">
-              <Check size={15} />
-              Alterações salvas
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {saved && (
+              <div className="flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2 text-sm font-semibold text-emerald-700">
+                <Check size={15} /> Alterações salvas
+              </div>
+            )}
+            <button
+              onClick={() => setAssignOpen(true)}
+              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-sm font-semibold text-white transition-colors"
+            >
+              Atribuir planos
+            </button>
+          </div>
         </div>
 
-        {/* Aviso sobre persistência */}
-        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          <CreditCard size={16} className="shrink-0 mt-0.5 text-amber-500" />
-          <p>
-            As alterações feitas aqui são refletidas na interface de todos os condomínios em tempo real.
-            Mudanças nos limites não afetam condomínios já contratados retroativamente.
-          </p>
-        </div>
-
-        {/* Cards */}
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {plans.map((plan) => (
             <PlanCard key={plan.id} plan={plan} onEdit={() => setEditing(plan)} />
@@ -352,10 +419,19 @@ export default function PlanosPage() {
       </div>
 
       {editing && (
-        <EditPlanModal
-          plan={editing}
-          onSave={handleSave}
-          onClose={() => setEditing(null)}
+        <EditPlanModal plan={editing} onSave={handleSavePlan} onClose={() => setEditing(null)} />
+      )}
+
+      {assignOpen && (
+        <AssignPlanModal
+          condominios={condominios}
+          onClose={() => setAssignOpen(false)}
+          onSaved={() => {
+            supabase.from("condominios").select("id, name, plan").order("name")
+              .then(({ data }) => setCondominios((data ?? []) as CondominioRow[]));
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+          }}
         />
       )}
     </AppLayout>
