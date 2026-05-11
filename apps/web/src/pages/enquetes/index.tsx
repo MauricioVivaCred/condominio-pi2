@@ -234,22 +234,16 @@ export default function EnquetesPage() {
 
   return (
     <AppLayout title="Assembleia Digital">
-      <div className="space-y-5">
-        {error ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</div>
-        ) : null}
+      <div className="relative space-y-6">
+        <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.10),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.08),_transparent_30%),linear-gradient(180deg,_rgba(248,250,252,0.9),_rgba(248,250,252,0))]" />
 
-        <section className="rounded-[32px] border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">
-                <Sparkles size={13} />
+        <section className="py-1">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0">
+              <div className="inline-flex items-center gap-2.5 rounded-full border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-bold uppercase tracking-[0.18em] text-sky-700">
+                <Vote size={16} />
                 Deliberacoes do condominio
               </div>
-              <h2 className="mt-3 text-xl font-semibold tracking-tight text-slate-950">Assembleia digital</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                Use esta area para convocar assembleias, abrir a janela de votacao, colher manifestacoes dos moradores e encerrar com uma ata resumida.
-              </p>
             </div>
             {canManage && (
               <button
@@ -263,27 +257,68 @@ export default function EnquetesPage() {
             )}
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2">
-            {[
-              { icon: FileText, label: "Assembleias", value: String(stats.totalAssemblies), tone: "border-sky-100 bg-sky-50 text-sky-700" },
-              { icon: Vote, label: "Votos", value: String(stats.totalVotes), tone: "border-slate-200 bg-slate-50 text-slate-700" },
-              { icon: Users, label: "Abertas", value: String(stats.openAssemblies), tone: "border-amber-100 bg-amber-50 text-amber-700" },
-              { icon: CheckCircle2, label: "Sua participacao", value: String(stats.participated), tone: "border-emerald-100 bg-emerald-50 text-emerald-700" },
-              { icon: MessageSquare, label: "Comentarios", value: String(stats.totalComments), tone: "border-slate-200 bg-slate-50 text-slate-700" },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.label} className={`inline-flex items-center gap-3 rounded-full border px-4 py-2.5 ${item.tone}`}>
-                  <Icon size={15} />
-                  <span className="text-xs font-semibold uppercase tracking-[0.16em]">{item.label}</span>
-                  <span className="text-sm font-bold">{item.value}</span>
-                </div>
-              );
-            })}
-          </div>
         </section>
 
         {info && <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{info}</p>}
+
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          {[
+            {
+              icon: FileText,
+              label: "Assembleias",
+              value: String(stats.totalAssemblies),
+              sub: "Convocacoes registradas",
+              cardTone: "border-sky-200 bg-[linear-gradient(180deg,_#f7fbff,_#eaf5ff)]",
+              iconTone: "text-sky-700",
+            },
+            {
+              icon: Vote,
+              label: "Votos recebidos",
+              value: String(stats.totalVotes),
+              sub: "Manifestacoes computadas",
+              cardTone: "border-amber-200 bg-[linear-gradient(180deg,_#fffaf0,_#fff4dd)]",
+              iconTone: "text-amber-700",
+            },
+            {
+              icon: Users,
+              label: "Assembleias abertas",
+              value: String(stats.openAssemblies),
+              sub: "Em fase de votacao",
+              cardTone: "border-emerald-200 bg-[linear-gradient(180deg,_#f7fffb,_#eefcf5)]",
+              iconTone: "text-emerald-700",
+            },
+            {
+              icon: MessageSquare,
+              label: "Comentarios",
+              value: String(stats.totalComments),
+              sub: "Manifestacoes registradas",
+              cardTone: "border-rose-200 bg-[linear-gradient(180deg,_#fff7f8,_#ffecef)]",
+              iconTone: "text-rose-700",
+            },
+            {
+              icon: CheckCircle2,
+              label: "Sua participacao",
+              value: String(stats.participated),
+              sub: "Assembleias com seu voto",
+              cardTone: "border-slate-200 bg-[linear-gradient(180deg,_#fbfcfe,_#f1f5f9)]",
+              iconTone: "text-slate-700",
+            },
+          ].map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.label} className={`rounded-[30px] border p-4 shadow-[0_24px_60px_-36px_rgba(15,23,42,0.28)] ${card.cardTone}`}>
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/90 bg-white shadow-[0_10px_24px_-16px_rgba(15,23,42,0.45)] ${card.iconTone}`}>
+                    <Icon size={18} />
+                  </div>
+                  <p className="text-[2rem] font-black leading-none tracking-[-0.05em] text-slate-900">{card.value}</p>
+                </div>
+                <p className="mt-3 text-base font-semibold text-slate-700">{card.label}</p>
+                <p className="mt-1 text-xs text-slate-500">{card.sub}</p>
+              </div>
+            );
+          })}
+        </section>
 
         <section className="space-y-3">
           {loading ? (
