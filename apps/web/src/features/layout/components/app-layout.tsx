@@ -132,6 +132,7 @@ export default function AppLayout({ title, children }: { title: string; children
   const location = useLocation();
   const [user, setUser] = useState(getUser());
   const [condPlan, setCondPlan] = useState<PlanId>(null);
+  const [condName, setCondName] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialCollapsedState);
   const { notifs, bellOpen, setBellOpen, bellPos, bellRef, unread, openBell, handleMarcarLida, handleMarcarTodas } = useNotifications();
@@ -146,8 +147,11 @@ export default function AppLayout({ title, children }: { title: string; children
   useEffect(() => {
     const u = getUser();
     if (u?.condominioUUID) {
-      supabase.from("condominios").select("plan").eq("id", u.condominioUUID).single()
-        .then(({ data }) => setCondPlan((data?.plan ?? null) as PlanId));
+      supabase.from("condominios").select("plan, name").eq("id", u.condominioUUID).single()
+        .then(({ data }) => {
+          setCondPlan((data?.plan ?? null) as PlanId);
+          setCondName((data?.name ?? null) as string | null);
+        });
     }
   }, [user?.condominioUUID]);
 
@@ -221,6 +225,12 @@ export default function AppLayout({ title, children }: { title: string; children
             )}
           </div>
         </div>
+
+        {condName && !collapsed && (
+          <div className="shrink-0 border-b border-gray-100 px-4 py-2.5">
+            <p className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600">{condName}</p>
+          </div>
+        )}
 
         <nav className={`min-h-0 flex flex-1 flex-col overflow-y-auto overflow-x-hidden ${collapsed ? "gap-2 p-2" : "gap-0.5 p-3"}`}>
           {groups.map((group) => (
