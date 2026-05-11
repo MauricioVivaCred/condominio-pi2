@@ -257,7 +257,6 @@ export default function EnquetesPage() {
           </div>
 
         </section>
-
         {info && <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{info}</p>}
 
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
@@ -287,20 +286,20 @@ export default function EnquetesPage() {
               iconTone: "text-emerald-700",
             },
             {
-              icon: MessageSquare,
-              label: "Comentarios",
-              value: String(stats.totalComments),
-              sub: "Manifestacoes registradas",
-              cardTone: "border-rose-200 bg-[linear-gradient(180deg,_#fff7f8,_#ffecef)]",
-              iconTone: "text-rose-700",
-            },
-            {
               icon: CheckCircle2,
               label: "Sua participacao",
               value: String(stats.participated),
               sub: "Assembleias com seu voto",
               cardTone: "border-slate-200 bg-[linear-gradient(180deg,_#fbfcfe,_#f1f5f9)]",
               iconTone: "text-slate-700",
+            },
+            {
+              icon: MessageSquare,
+              label: "Comentarios",
+              value: String(stats.totalComments),
+              sub: "Manifestacoes registradas",
+              cardTone: "border-rose-200 bg-[linear-gradient(180deg,_#fff7f8,_#ffecef)]",
+              iconTone: "text-rose-700",
             },
           ].map((card) => {
             const Icon = card.icon;
