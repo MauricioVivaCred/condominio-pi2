@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
-import { supabase } from "../../lib/supabase";
+import { supabase, getSupabaseAdmin } from "../../lib/supabase";
 import { setStoredUser, type User, type UserRole } from "../../features/auth/services/auth";
 import loginBg from "../../assets/login.jpg";
 
@@ -12,6 +12,7 @@ export default function CompletarPerfil() {
   const [step, setStep] = useState<Step>("loading");
   const [userId, setUserId] = useState<string>("");
   const [email, setEmail] = useState<string>("");
+  const [userMeta, setUserMeta] = useState<Record<string, string | null>>({});
 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -28,10 +29,12 @@ export default function CompletarPerfil() {
       if (event === "SIGNED_IN" && session) {
         setUserId(session.user.id);
         setEmail(session.user.email ?? "");
+        setUserMeta(session.user.user_metadata as Record<string, string | null>);
         setStep("form");
       } else if (event === "INITIAL_SESSION" && session) {
         setUserId(session.user.id);
         setEmail(session.user.email ?? "");
+        setUserMeta(session.user.user_metadata as Record<string, string | null>);
         setStep("form");
       } else if (!session && step === "loading") {
         // Give a short grace period for Supabase to process the hash
@@ -45,6 +48,7 @@ export default function CompletarPerfil() {
       if (data.session) {
         setUserId(data.session.user.id);
         setEmail(data.session.user.email ?? "");
+        setUserMeta(data.session.user.user_metadata as Record<string, string | null>);
         setStep("form");
       }
     });
@@ -84,6 +88,19 @@ export default function CompletarPerfil() {
         })
         .eq("id", userId);
       if (profileErr) throw new Error(profileErr.message);
+
+      // Vincular ao condomínio caso o invite tenha passado condominio_id nos metadados
+      const condominioIdFromMeta = userMeta?.condominio_id ?? null;
+      if (condominioIdFromMeta) {
+        const admin = getSupabaseAdmin();
+        const roleFromMeta = (userMeta?.role as string) ?? "MORADOR";
+        await admin.from("usuario_condominio").upsert({
+          user_id: userId,
+          condominio_id: condominioIdFromMeta,
+          active: true,
+          role: roleFromMeta,
+        } as never, { onConflict: "user_id,condominio_id" });
+      }
 
       // Fetch the full profile to build the stored user
       const { data: profile } = await supabase

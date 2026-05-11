@@ -560,7 +560,7 @@ export async function inviteUser(payload: InviteUserPayload): Promise<void> {
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(payload.email, {
     redirectTo: `${appUrl}/completar-perfil`,
-    data: { role: payload.role, resident_type: payload.residentType },
+    data: { role: payload.role, resident_type: payload.residentType, condominio_id: payload.condominioId ?? null },
   });
 
   if (error) {

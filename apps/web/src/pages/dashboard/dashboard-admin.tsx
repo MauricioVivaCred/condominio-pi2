@@ -15,6 +15,7 @@ import {
   Cell,
 } from "recharts";
 import AppLayout from "../../features/layout/components/app-layout";
+import { getUser } from "../../features/auth/services/auth";
 import { inviteUser, listUsers, updateUserRecord, type InviteUserPayload, type UpdateUserPayload, type UserRecord } from "../../features/dashboard/services/users";
 import { fetchSantosWeather, type WeatherSnapshot } from "../../features/dashboard/services/weather";
 import { listOcorrencias, type Ocorrencia } from "../../features/ocorrencias/services/ocorrencias";
@@ -66,6 +67,7 @@ function ChartTooltip({ active, payload, label }: any) {
 
 export default function DashboardAdmin() {
   const nav = useNavigate();
+  const currentUser = getUser();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [usersError, setUsersError] = useState("");
@@ -147,7 +149,7 @@ export default function DashboardAdmin() {
           role: form.role,
           residentType: form.residentType,
           apartmentId: form.apartmentId,
-          condominioId: null,
+          condominioId: currentUser?.condominioUUID ?? null,
         } satisfies InviteUserPayload);
       }
       closeModal();
