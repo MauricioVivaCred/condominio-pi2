@@ -5,20 +5,13 @@ import {
   CalendarClock,
   CheckCircle2,
   Copy,
-  Download,
-  Droplets,
   FileBarChart2,
-  FileText,
   Landmark,
   PlusCircle,
   Printer,
   Receipt,
-  ShieldCheck,
-  Users,
   Wallet,
-  Wrench,
   X,
-  Zap,
 } from "lucide-react";
 import {
   Area,
@@ -48,357 +41,37 @@ import {
 } from "../../features/financeiro/services/financeiro";
 import { supabase } from "../../lib/supabase";
 import { fetchBuilding, getMockBuilding, type Floor } from "../../features/predio/services/predio";
+import {
+  type ExpenseCategory,
+  type MonthlyPoint,
+  type AccountabilityReport,
+  expenseCategories,
+  expenseCategoryMeta,
+  formatCurrency,
+  formatDate,
+  getMonthKey,
+  formatMonthLabel,
+  formatMonthLongLabel,
+  normalizeText,
+  normalizeUnit,
+  parseUnitDescriptor,
+  billMatchesResidentUnit,
+  readLocalMockAssignments,
+  getUnitOptions,
+  getBillStatusMeta,
+} from "./utils/finance-calc";
+import { openBillPrintView } from "./utils/finance-print";
+import { FinanceTooltip } from "./components/finance-tooltip";
+import { FinanceFormModal, type RevenueForm, type ExpenseForm, type BillForm } from "./components/finance-form-modal";
+import { ResidentFinanceView } from "./components/resident-finance-view";
 
-type RevenueCategory = "Taxa condominial" | "Multa" | "Juros por atraso" | "Aluguel areas comuns";
-type ExpenseCategory = "Funcionarios" | "Energia" | "Agua" | "Manutencao" | "Limpeza" | "Seguranca" | "Outros";
-type RevenueStatus = "Recebido" | "Em aberto" | "Atrasado";
-type ExpenseStatus = "Pago" | "Pendente" | "Em negociacao";
 type FinanceModal = "revenue" | "expense" | "bill" | null;
-type MonthlyPoint = { month: string; receitas: number; despesas: number; saldo: number };
-type UnitOption = { value: string; label: string; resident: string; email: string };
-type AccountabilityReport = {
-  key: string;
-  label: string;
-  receitas: number;
-  despesas: number;
-  saldo: number;
-  highlights: FinanceEntry[];
-};
-type LocalMockAssignment = {
-  userId: string | null;
-  resident: {
-    id?: string;
-    name?: string;
-    email?: string;
-  } | null;
-};
-type ResidentUnitDescriptor = {
-  full: string;
-  tower: string;
-  apartment: string;
-};
 
-const revenueCategories: RevenueCategory[] = ["Taxa condominial", "Multa", "Juros por atraso", "Aluguel areas comuns"];
-const expenseCategories: ExpenseCategory[] = ["Funcionarios", "Energia", "Agua", "Manutencao", "Limpeza", "Seguranca", "Outros"];
-const monthFormatter = new Intl.DateTimeFormat("pt-BR", { month: "short", year: "2-digit" });
 const inputClass =
   "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 const fieldLabelClass = "grid gap-2 text-sm font-medium text-slate-700";
 const panelClass =
   "rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur";
-const expenseCategoryMeta = {
-  Funcionarios: { label: "Pessoal", color: "#7c3aed", tone: "border-violet-200 bg-violet-50 text-violet-700", icon: Users },
-  Energia: { label: "Luz", color: "#f59e0b", tone: "border-amber-200 bg-amber-50 text-amber-700", icon: Zap },
-  Agua: { label: "Agua", color: "#06b6d4", tone: "border-cyan-200 bg-cyan-50 text-cyan-700", icon: Droplets },
-  Manutencao: { label: "Manutencao", color: "#10b981", tone: "border-emerald-200 bg-emerald-50 text-emerald-700", icon: Wrench },
-  Limpeza: { label: "Limpeza", color: "#6366f1", tone: "border-indigo-200 bg-indigo-50 text-indigo-700", icon: ShieldCheck },
-  Seguranca: { label: "Seguranca", color: "#ef4444", tone: "border-rose-200 bg-rose-50 text-rose-700", icon: ShieldCheck },
-  Outros: { label: "Outros", color: "#64748b", tone: "border-slate-200 bg-slate-100 text-slate-700", icon: Building2 },
-} as const;
-
-function formatCurrency(value: number) {
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    maximumFractionDigits: 2,
-  });
-}
-
-function formatDate(value: string | null) {
-  if (!value) return "-";
-  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR");
-}
-
-function getMonthKey(value: string) {
-  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function formatMonthLabel(key: string) {
-  const [year, month] = key.split("-").map(Number);
-  return monthFormatter.format(new Date(year, month - 1, 1));
-}
-
-function formatMonthLongLabel(key: string) {
-  const [year, month] = key.split("-").map(Number);
-  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date(year, month - 1, 1));
-}
-
-function normalizeText(value: string | null | undefined) {
-  return (value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function normalizeUnit(value: string | null | undefined) {
-  return normalizeText(value).replace(/[^a-z0-9]/g, "");
-}
-
-function parseUnitDescriptor(value: string | null | undefined): ResidentUnitDescriptor {
-  const raw = normalizeText(value);
-  const apartmentMatch = raw.match(/ap\s*([a-z0-9-]+)/) ?? raw.match(/\b(\d{2,4}[a-z]?)\b/);
-  const apartment = apartmentMatch?.[1] ?? "";
-  const towerMatch = raw.match(/torre\s*([a-z0-9]+)/);
-  const tower = towerMatch?.[1] ?? "";
-
-  return {
-    full: normalizeUnit(value),
-    tower,
-    apartment: apartment.replace(/[^a-z0-9-]/g, ""),
-  };
-}
-
-function billMatchesResidentUnit(billUnit: string | null | undefined, residentUnits: ResidentUnitDescriptor[]) {
-  const billDescriptor = parseUnitDescriptor(billUnit);
-  if (!billDescriptor.full) return false;
-
-  return residentUnits.some((unit) => {
-    if (unit.full && unit.full === billDescriptor.full) return true;
-    if (unit.full && billDescriptor.full.includes(unit.full)) return true;
-    if (unit.full && unit.full.includes(billDescriptor.full)) return true;
-
-    const sameApartment = !!unit.apartment && unit.apartment === billDescriptor.apartment;
-    const towerCompatible = !unit.tower || !billDescriptor.tower || unit.tower === billDescriptor.tower;
-
-    return sameApartment && towerCompatible;
-  });
-}
-
-function readLocalMockAssignments(): Record<string, LocalMockAssignment> {
-  if (typeof window === "undefined") return {};
-
-  try {
-    const raw = window.localStorage.getItem("predio:assignments");
-    return raw ? (JSON.parse(raw) as Record<string, LocalMockAssignment>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function getUnitOptions(floors: Floor[]): UnitOption[] {
-  return floors
-    .flatMap((floor) =>
-      floor.apartments
-        .filter((apartment) => apartment.resident)
-        .map((apartment) => ({
-          value: `${floor.tower} - Ap ${apartment.number}`,
-          label: `${floor.tower} - Ap ${apartment.number} - ${apartment.resident?.name ?? "Morador"}`,
-          resident: apartment.resident?.name ?? "Morador nao informado",
-          email: apartment.resident?.email ?? "",
-        })),
-    )
-    .sort((a, b) => a.value.localeCompare(b.value, "pt-BR", { numeric: true }));
-}
-
-function getBillStatusMeta(status: FinanceBillStatus) {
-  switch (status) {
-    case "PAID":
-      return { label: "Pago", className: "border-emerald-200 bg-emerald-50 text-emerald-700" };
-    case "OVERDUE":
-      return { label: "Atrasado", className: "border-rose-200 bg-rose-50 text-rose-700" };
-    case "CANCELLED":
-      return { label: "Cancelado", className: "border-slate-200 bg-slate-100 text-slate-600" };
-    default:
-      return { label: "Em aberto", className: "border-amber-200 bg-amber-50 text-amber-700" };
-  }
-}
-
-function FinanceTooltip({
-  active,
-  payload,
-  label,
-}: {
-  active?: boolean;
-  payload?: Array<{ color: string; name: string; value: number }>;
-  label?: string;
-}) {
-  if (!active || !payload?.length) return null;
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs shadow-lg">
-      <p className="font-semibold text-slate-700">{label}</p>
-      {payload.map((item) => (
-        <p key={item.name} style={{ color: item.color }} className="mt-1">
-          {item.name}: {formatCurrency(item.value)}
-        </p>
-      ))}
-    </div>
-  );
-}
-
-function openBillPrintView(bill: FinanceBill) {
-  const win = window.open("", "_blank", "width=900,height=700");
-  if (!win) return;
-
-  win.document.write(`<!DOCTYPE html>
-    <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <title>${bill.bill_code}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 32px; color: #0f172a; }
-          .card { border: 1px solid #cbd5e1; border-radius: 20px; padding: 24px; }
-          .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #f8fafc; border: 1px solid #e2e8f0; font-size: 12px; font-weight: bold; }
-          .line { font-family: monospace; font-size: 20px; letter-spacing: 1px; margin: 18px 0; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
-          .label { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
-          .value { font-size: 16px; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="pill">Boleto mockado</div>
-          <h1>${bill.bill_code}</h1>
-          <p>Documento interno para cobranca condominial sem integracao bancaria.</p>
-          <div class="line">${bill.digitable_line}</div>
-          <div class="grid">
-            <div><div class="label">Unidade</div><div class="value">${bill.unit}</div></div>
-            <div><div class="label">Morador</div><div class="value">${bill.resident}</div></div>
-            <div><div class="label">Competencia</div><div class="value">${formatDate(bill.competence_date)}</div></div>
-            <div><div class="label">Vencimento</div><div class="value">${formatDate(bill.due_date)}</div></div>
-            <div><div class="label">Valor</div><div class="value">${formatCurrency(bill.amount)}</div></div>
-            <div><div class="label">Codigo de barras</div><div class="value">${bill.barcode}</div></div>
-          </div>
-          <p style="margin-top: 24px; font-size: 12px; color: #64748b;">Gerado para demonstracao do fluxo financeiro do condominio.</p>
-        </div>
-        <script>window.print()</script>
-      </body>
-    </html>`);
-  win.document.close();
-}
-
-function buildPixCode(bill: FinanceBill) {
-  return `PIX|OMNILAR|${bill.bill_code}|${bill.amount.toFixed(2)}|${bill.due_date}`;
-}
-
-function openReceiptPrintView(bill: FinanceBill) {
-  const win = window.open("", "_blank", "width=900,height=700");
-  if (!win) return;
-
-  win.document.write(`<!DOCTYPE html>
-    <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Recibo ${bill.bill_code}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 32px; color: #0f172a; }
-          .card { border: 1px solid #cbd5e1; border-radius: 20px; padding: 24px; }
-          .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #ecfdf5; border: 1px solid #bbf7d0; font-size: 12px; font-weight: bold; color: #047857; }
-          .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
-          .label { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
-          .value { font-size: 16px; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="pill">Recibo de quitacao</div>
-          <h1>${bill.bill_code}</h1>
-          <p>Comprovante interno de pagamento da taxa condominial.</p>
-          <div class="grid">
-            <div><div class="label">Unidade</div><div class="value">${bill.unit}</div></div>
-            <div><div class="label">Morador</div><div class="value">${bill.resident}</div></div>
-            <div><div class="label">Competencia</div><div class="value">${formatDate(bill.competence_date)}</div></div>
-            <div><div class="label">Vencimento</div><div class="value">${formatDate(bill.due_date)}</div></div>
-            <div><div class="label">Valor pago</div><div class="value">${formatCurrency(bill.amount)}</div></div>
-            <div><div class="label">Baixa</div><div class="value">${bill.paid_at ? formatDate(bill.paid_at) : "Aguardando compensacao"}</div></div>
-          </div>
-        </div>
-        <script>window.print()</script>
-      </body>
-    </html>`);
-  win.document.close();
-}
-
-function openAccountabilityPrintView(report: AccountabilityReport) {
-  const win = window.open("", "_blank", "width=900,height=700");
-  if (!win) return;
-
-  const highlightLines = report.highlights
-    .map((item) => `<li>${item.description} - ${formatCurrency(item.amount)}</li>`)
-    .join("");
-
-  win.document.write(`<!DOCTYPE html>
-    <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Balancete ${report.label}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 32px; color: #0f172a; }
-          .card { border: 1px solid #cbd5e1; border-radius: 20px; padding: 24px; }
-          .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #eef2ff; border: 1px solid #c7d2fe; font-size: 12px; font-weight: bold; color: #4338ca; }
-          .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
-          .label { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
-          .value { font-size: 16px; font-weight: bold; }
-          ul { margin-top: 20px; padding-left: 20px; }
-          li { margin-bottom: 8px; }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <div class="pill">Prestacao de contas</div>
-          <h1>${report.label}</h1>
-          <p>Resumo financeiro agregado do condominio para consulta dos moradores.</p>
-          <div class="grid">
-            <div><div class="label">Receitas</div><div class="value">${formatCurrency(report.receitas)}</div></div>
-            <div><div class="label">Despesas</div><div class="value">${formatCurrency(report.despesas)}</div></div>
-            <div><div class="label">Saldo</div><div class="value">${formatCurrency(report.saldo)}</div></div>
-          </div>
-          <h2 style="margin-top: 24px;">Principais despesas</h2>
-          <ul>${highlightLines || "<li>Sem despesas registradas no periodo.</li>"}</ul>
-        </div>
-        <script>window.print()</script>
-      </body>
-    </html>`);
-  win.document.close();
-}
-
-function openInvoicesPrintView(report: AccountabilityReport) {
-  const win = window.open("", "_blank", "width=900,height=700");
-  if (!win) return;
-
-  const blocks = report.highlights
-    .map(
-      (item) => `
-        <div class="invoice">
-          <div class="label">Fornecedor / descricao</div>
-          <div class="value">${item.description}</div>
-          <div class="label" style="margin-top: 12px;">Categoria</div>
-          <div class="value">${item.category}</div>
-          <div class="label" style="margin-top: 12px;">Valor</div>
-          <div class="value">${formatCurrency(item.amount)}</div>
-          <div class="label" style="margin-top: 12px;">Documento</div>
-          <div class="value">${item.document_name ?? "NF digitalizada pendente"}</div>
-        </div>`,
-    )
-    .join("");
-
-  win.document.write(`<!DOCTYPE html>
-    <html lang="pt-BR">
-      <head>
-        <meta charset="UTF-8" />
-        <title>Notas ${report.label}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 32px; color: #0f172a; }
-          .invoice { border: 1px solid #cbd5e1; border-radius: 20px; padding: 20px; margin-bottom: 16px; }
-          .pill { display: inline-block; padding: 6px 10px; border-radius: 999px; background: #eff6ff; border: 1px solid #bfdbfe; font-size: 12px; font-weight: bold; color: #1d4ed8; }
-          .label { font-size: 12px; text-transform: uppercase; color: #64748b; margin-bottom: 4px; }
-          .value { font-size: 16px; font-weight: bold; }
-        </style>
-      </head>
-      <body>
-        <div class="pill">Notas fiscais principais</div>
-        <h1>${report.label}</h1>
-        <p>Consulta agregada das maiores despesas do periodo para transparencia do condominio.</p>
-        ${blocks || "<div class='invoice'><div class='value'>Nenhuma nota principal registrada no periodo.</div></div>"}
-        <script>window.print()</script>
-      </body>
-    </html>`);
-  win.document.close();
-}
-
 export default function FinanceiroPage() {
   const user = getUser();
   const isResident = user?.role === "MORADOR";
@@ -421,41 +94,19 @@ export default function FinanceiroPage() {
   const [updatingBillId, setUpdatingBillId] = useState<number | null>(null);
   const [copiedBillCode, setCopiedBillCode] = useState("");
 
-  const [revenueForm, setRevenueForm] = useState({
-    identifier: "",
-    description: "",
-    amount: "",
-    referenceDate: "2026-03-12",
-    unit: "",
-    resident: "",
-    category: "Taxa condominial" as RevenueCategory,
-    paymentMethod: "Pix",
-    status: "Recebido" as RevenueStatus,
-    documentName: "",
-    notes: "",
+  const [revenueForm, setRevenueForm] = useState<RevenueForm>({
+    identifier: "", description: "", amount: "", referenceDate: "2026-03-12",
+    unit: "", resident: "", category: "Taxa condominial", paymentMethod: "Pix",
+    status: "Recebido", documentName: "", notes: "",
   });
-  const [expenseForm, setExpenseForm] = useState({
-    identifier: "",
-    description: "",
-    amount: "",
-    referenceDate: "2026-03-12",
-    dueDate: "2026-03-20",
-    counterparty: "",
-    category: "Energia" as ExpenseCategory,
-    paymentMethod: "Boleto",
-    status: "Pendente" as ExpenseStatus,
-    documentName: "",
-    notes: "",
+  const [expenseForm, setExpenseForm] = useState<ExpenseForm>({
+    identifier: "", description: "", amount: "", referenceDate: "2026-03-12",
+    dueDate: "2026-03-20", counterparty: "", category: "Energia",
+    paymentMethod: "Boleto", status: "Pendente", documentName: "", notes: "",
   });
-  const [billForm, setBillForm] = useState({
-    unit: "",
-    resident: "",
-    residentEmail: "",
-    amount: "",
-    competenceDate: "2026-04-01",
-    issueDate: "2026-04-01",
-    dueDate: "2026-04-10",
-    instructions: "",
+  const [billForm, setBillForm] = useState<BillForm>({
+    unit: "", resident: "", residentEmail: "", amount: "",
+    competenceDate: "2026-04-01", issueDate: "2026-04-01", dueDate: "2026-04-10", instructions: "",
   });
 
   async function loadData() {
@@ -805,17 +456,9 @@ export default function FinanceiroPage() {
       });
 
       setRevenueForm({
-        identifier: "",
-        description: "",
-        amount: "",
-        referenceDate: "2026-03-12",
-        unit: "",
-        resident: "",
-        category: "Taxa condominial",
-        paymentMethod: "Pix",
-        status: "Recebido",
-        documentName: "",
-        notes: "",
+        identifier: "", description: "", amount: "", referenceDate: "2026-03-12",
+        unit: "", resident: "", category: "Taxa condominial", paymentMethod: "Pix",
+        status: "Recebido", documentName: "", notes: "",
       });
       setActiveModal(null);
       setActionMessage("Receita cadastrada com sucesso.");
@@ -853,17 +496,9 @@ export default function FinanceiroPage() {
       });
 
       setExpenseForm({
-        identifier: "",
-        description: "",
-        amount: "",
-        referenceDate: "2026-03-12",
-        dueDate: "2026-03-20",
-        counterparty: "",
-        category: "Energia",
-        paymentMethod: "Boleto",
-        status: "Pendente",
-        documentName: "",
-        notes: "",
+        identifier: "", description: "", amount: "", referenceDate: "2026-03-12",
+        dueDate: "2026-03-20", counterparty: "", category: "Energia",
+        paymentMethod: "Boleto", status: "Pendente", documentName: "", notes: "",
       });
       setActiveModal(null);
       setActionMessage("Despesa cadastrada com sucesso.");
@@ -898,14 +533,8 @@ export default function FinanceiroPage() {
 
       const created = await createFinanceBill(payload);
       setBillForm({
-        unit: "",
-        resident: "",
-        residentEmail: "",
-        amount: "",
-        competenceDate: "2026-04-01",
-        issueDate: "2026-04-01",
-        dueDate: "2026-04-10",
-        instructions: "",
+        unit: "", resident: "", residentEmail: "", amount: "",
+        competenceDate: "2026-04-01", issueDate: "2026-04-01", dueDate: "2026-04-10", instructions: "",
       });
       setActiveModal(null);
       setActionMessage(`Boleto ${created.bill_code} emitido com sucesso.`);
@@ -943,339 +572,20 @@ export default function FinanceiroPage() {
   }
 
   if (isResident) {
-    const nextBillStatus = nextResidentBill ? getBillStatusMeta(nextResidentBill.status) : null;
-
     return (
-      <AppLayout title="Financeiro">
-        <div className="relative space-y-6">
-          <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[460px] bg-[radial-gradient(circle_at_top_left,_rgba(99,102,241,0.18),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(56,189,248,0.14),_transparent_30%),linear-gradient(180deg,_rgba(248,250,252,0.95),_rgba(248,250,252,0))]" />
-
-          {error && <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</p>}
-          {actionMessage && <p className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-700">{actionMessage}</p>}
-          {loading && <p className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">Carregando financeiro...</p>}
-
-          {!loading && !error && (
-            <>
-              <section className="grid gap-4 xl:grid-cols-[minmax(0,1.25fr)_360px]">
-                <div className={`${panelClass} overflow-hidden bg-[linear-gradient(135deg,_rgba(15,23,42,0.96),_rgba(67,56,202,0.92)_55%,_rgba(30,41,59,0.95))] text-white`}>
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                    <div className="max-w-2xl">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-100">
-                        <Receipt size={13} />
-                        Meu proximo vencimento
-                      </div>
-                      <h2 className="mt-4 text-[clamp(1.6rem,2.4vw,2.2rem)] font-black tracking-[-0.04em] text-white">
-                        {nextResidentBill ? formatCurrency(nextResidentBill.amount) : "Sem cobrancas abertas"}
-                      </h2>
-                      <p className="mt-2 text-sm leading-6 text-indigo-100/90">
-                        {nextResidentBill
-                          ? `Competencia ${formatDate(nextResidentBill.competence_date)} com vencimento em ${formatDate(nextResidentBill.due_date)}.`
-                          : "Quando a proxima taxa condominial for emitida, ela aparecera aqui com atalhos rapidos."}
-                      </p>
-                      {nextResidentBill && (
-                        <div className="mt-4 flex flex-wrap items-center gap-3">
-                          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${nextBillStatus?.className ?? "border-white/15 bg-white/10 text-white"}`}>
-                            {nextBillStatus?.label}
-                          </span>
-                          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-indigo-50">
-                            {nextResidentBill.unit}
-                          </span>
-                          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold text-indigo-50">
-                            {nextResidentBill.bill_code}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <button
-                        type="button"
-                        disabled={!nextResidentBill}
-                        onClick={async () => {
-                          if (!nextResidentBill) return;
-                          await navigator.clipboard.writeText(buildPixCode(nextResidentBill));
-                          setActionMessage(`Codigo PIX de ${nextResidentBill.bill_code} copiado.`);
-                        }}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <Copy size={16} />
-                        Copiar Codigo PIX
-                      </button>
-                      <button
-                        type="button"
-                        disabled={!nextResidentBill}
-                        onClick={() => nextResidentBill && openBillPrintView(nextResidentBill)}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <Download size={16} />
-                        Baixar Boleto PDF
-                      </button>
-                    </div>
-                  </div>
-
-                  {nextResidentBill && (
-                    <div className="mt-5 rounded-[24px] border border-white/10 bg-white/5 px-4 py-4">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-100">Codigo rapido</p>
-                      <p className="mt-2 break-all font-mono text-sm text-white/90">{buildPixCode(nextResidentBill)}</p>
-                    </div>
-                  )}
-                </div>
-
-                <aside className={`${panelClass} bg-[linear-gradient(180deg,_#ffffff,_#f8faff)]`}>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 text-indigo-700">
-                      <Landmark size={20} />
-                    </div>
-                    <div>
-                      <h3 className="m-0 text-base font-semibold text-slate-900">Fundo de Reserva / Obras</h3>
-                      <p className="mt-1 text-sm text-slate-500">Saldo agregado reservado para manutencoes e contingencias.</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-950 px-5 py-5 text-white">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-200">Transparencia condominial</p>
-                    <p className="mt-3 text-3xl font-black tracking-[-0.04em]">{formatCurrency(reserveFundAmount)}</p>
-                    <p className="mt-2 text-sm text-slate-300">Reserva consolidada para maresia, pintura e manutenções preventivas.</p>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600">Maresia</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(reserveFundAmount * 0.58)}</p>
-                    </div>
-                    <div className="rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-700">Pintura</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(reserveFundAmount * 0.42)}</p>
-                    </div>
-                  </div>
-                </aside>
-              </section>
-
-              <section className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-                <div className={`${panelClass} bg-[linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(245,247,255,0.98))]`}>
-                  <div className="flex flex-col gap-3 border-b border-slate-100 pb-5 lg:flex-row lg:items-end lg:justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-100 text-violet-700">
-                        <FileBarChart2 size={20} />
-                      </div>
-                      <div>
-                        <h3 className="m-0 text-base font-semibold text-slate-900">Para onde vai seu dinheiro</h3>
-                        <p className="mt-1 text-sm text-slate-500">Distribuicao das despesas do condominio em {referenceMonthLabel}.</p>
-                      </div>
-                    </div>
-                    <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                      Resumo agregado
-                    </span>
-                  </div>
-
-                  <div className="mt-5 grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)] lg:items-center">
-                    <div className="h-[280px] rounded-[24px] border border-slate-100 bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.08),_transparent_34%),linear-gradient(180deg,_rgba(248,250,252,0.9),_rgba(255,255,255,1))] p-4">
-                      {residentExpenseBreakdown.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie data={residentExpenseBreakdown} dataKey="value" nameKey="label" innerRadius={62} outerRadius={90} paddingAngle={3}>
-                              {residentExpenseBreakdown.map((item) => (
-                                <Cell key={item.category} fill={item.color} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(value) => formatCurrency(Number(value ?? 0))} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-center text-sm text-slate-500">
-                          Nenhuma despesa consolidada disponivel para o periodo.
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-3">
-                      {residentExpenseBreakdown.map((item) => {
-                        const Icon = item.icon;
-                        const percentage = residentExpenseTotal > 0 ? Math.round((item.value / residentExpenseTotal) * 100) : 0;
-                        return (
-                          <div key={item.category} className="flex items-center justify-between rounded-[22px] border border-slate-100 bg-white px-4 py-3 shadow-sm">
-                            <div className="flex min-w-0 items-center gap-3">
-                              <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${item.tone}`}>
-                                <Icon size={18} />
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-slate-900">{item.label}</p>
-                                <p className="text-xs text-slate-500">{percentage}% do total do mes</p>
-                              </div>
-                            </div>
-                            <span className="text-sm font-semibold text-slate-900">{formatCurrency(item.value)}</span>
-                          </div>
-                        );
-                      })}
-                      {residentExpenseBreakdown.length === 0 && (
-                        <div className="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                          O grafico sera preenchido automaticamente quando houver lancamentos do mes.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <aside className={`${panelClass} bg-[linear-gradient(180deg,_#ffffff,_#f8fafc)]`}>
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                      <CheckCircle2 size={20} />
-                    </div>
-                    <div>
-                      <h3 className="m-0 text-base font-semibold text-slate-900">Panorama pessoal</h3>
-                      <p className="mt-1 text-sm text-slate-500">Resumo rapido das suas cobrancas e pagamentos.</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
-                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Pagos</p>
-                      <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-slate-900">
-                        {formatCurrency(residentBills.filter((bill) => bill.status === "PAID").reduce((sum, bill) => sum + bill.amount, 0))}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Em aberto</p>
-                      <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-slate-900">
-                        {formatCurrency(residentBills.filter((bill) => bill.status === "PENDING").reduce((sum, bill) => sum + bill.amount, 0))}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700">Atrasado</p>
-                      <p className="mt-1 text-2xl font-black tracking-[-0.04em] text-slate-900">
-                        {formatCurrency(residentBills.filter((bill) => bill.status === "OVERDUE").reduce((sum, bill) => sum + bill.amount, 0))}
-                      </p>
-                    </div>
-                  </div>
-                </aside>
-              </section>
-
-              <section className={`${panelClass} overflow-hidden bg-[linear-gradient(180deg,_#ffffff,_#fbfdff)]`}>
-                <div className="flex flex-col gap-3 border-b border-slate-100 pb-5 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
-                      <CalendarClock size={20} />
-                    </div>
-                    <div>
-                      <h3 className="m-0 text-base font-semibold text-slate-900">Meus Pagamentos</h3>
-                      <p className="mt-1 text-sm text-slate-500">Historico pessoal de boletos sem expor informacoes de outros moradores.</p>
-                    </div>
-                  </div>
-                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    {residentBills.length} registros
-                  </span>
-                </div>
-
-                <div className="mt-5 overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-100">
-                    <thead>
-                      <tr className="text-left text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        <th className="px-4 py-3">Mes de referencia</th>
-                        <th className="px-4 py-3">Valor</th>
-                        <th className="px-4 py-3">Vencimento</th>
-                        <th className="px-4 py-3">Status</th>
-                        <th className="px-4 py-3 text-right">Acoes</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white/90">
-                      {residentBills.map((bill) => {
-                        const statusMeta = getBillStatusMeta(bill.status);
-                        return (
-                          <tr key={bill.id} className="transition hover:bg-slate-50/80">
-                            <td className="px-4 py-4 text-sm font-semibold text-slate-900">{formatMonthLongLabel(getMonthKey(bill.competence_date))}</td>
-                            <td className="px-4 py-4 text-sm text-slate-700">{formatCurrency(bill.amount)}</td>
-                            <td className="px-4 py-4 text-sm text-slate-700">{formatDate(bill.due_date)}</td>
-                            <td className="px-4 py-4">
-                              <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusMeta.className}`}>
-                                {statusMeta.label}
-                              </span>
-                            </td>
-                            <td className="px-4 py-4 text-right">
-                              <button
-                                type="button"
-                                disabled={bill.status !== "PAID"}
-                                onClick={() => openReceiptPrintView(bill)}
-                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                              >
-                                <Download size={15} />
-                                Recibo
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {residentBills.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="px-4 py-8 text-center text-sm text-slate-500">
-                            Nenhum boleto pessoal encontrado para este usuario.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-
-              <section className="space-y-4">
-                <div>
-                  <h3 className="m-0 text-base font-semibold text-slate-900">Prestacao de Contas</h3>
-                  <p className="mt-1 text-sm text-slate-500">Balancetes mensais e notas fiscais principais para consulta transparente do condominio.</p>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {accountabilityReports.map((report) => (
-                    <article key={report.key} className={`${panelClass} bg-[linear-gradient(180deg,_#ffffff,_#f8fafc)]`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Balancete mensal</p>
-                          <h4 className="mt-2 text-lg font-semibold text-slate-900">{report.label}</h4>
-                        </div>
-                        <div className="rounded-2xl border border-indigo-100 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700">
-                          {report.highlights.length} notas
-                        </div>
-                      </div>
-
-                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Receitas</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(report.receitas)}</p>
-                        </div>
-                        <div className="rounded-2xl border border-amber-100 bg-amber-50 px-3 py-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Despesas</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(report.despesas)}</p>
-                        </div>
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Saldo</p>
-                          <p className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(report.saldo)}</p>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => openAccountabilityPrintView(report)}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
-                        >
-                          <FileText size={16} />
-                          Baixar Balancete PDF
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openInvoicesPrintView(report)}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-                        >
-                          <Receipt size={16} />
-                          Ver Notas Fiscais
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            </>
-          )}
-        </div>
-      </AppLayout>
+      <ResidentFinanceView
+        loading={loading}
+        error={error}
+        actionMessage={actionMessage}
+        nextResidentBill={nextResidentBill}
+        residentBills={residentBills}
+        reserveFundAmount={reserveFundAmount}
+        referenceMonthLabel={referenceMonthLabel}
+        residentExpenseBreakdown={residentExpenseBreakdown}
+        residentExpenseTotal={residentExpenseTotal}
+        accountabilityReports={accountabilityReports}
+        onSetActionMessage={setActionMessage}
+      />
     );
   }
 
@@ -1700,292 +1010,23 @@ export default function FinanceiroPage() {
         )}
       </div>
 
-      {activeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
-          <div className="w-full max-w-2xl rounded-[32px] bg-white shadow-2xl ring-1 ring-slate-200">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Financeiro</p>
-                <h3 className="mt-1 text-xl font-semibold text-slate-900">
-                  {activeModal === "revenue" ? "Cadastrar receita" : activeModal === "expense" ? "Cadastrar despesa" : "Emitir boleto mockado"}
-                </h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  {activeModal === "bill"
-                    ? "Gere a cobranca condominial com linha digitavel e segunda via interna."
-                    : "Preencha os dados da movimentacao financeira."}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveModal(null)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-5">
-              {formError && <p className="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{formError}</p>}
-
-              {activeModal === "revenue" && (
-                <form onSubmit={handleCreateRevenue} className="grid gap-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className={fieldLabelClass}>
-                      <span>Codigo</span>
-                      <input
-                        value={revenueForm.identifier}
-                        onChange={(e) => setRevenueForm((current) => ({ ...current, identifier: e.target.value }))}
-                        placeholder="Ex.: REC-0426-001"
-                        className={`${inputClass} ${revenueErrors.identifier ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100" : ""}`}
-                      />
-                      {revenueErrors.identifier && <span className="text-xs text-rose-600">{revenueErrors.identifier}</span>}
-                    </label>
-                    <label className={fieldLabelClass}>
-                      <span>Valor</span>
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={revenueForm.amount}
-                        onChange={(e) => setRevenueForm((current) => ({ ...current, amount: e.target.value }))}
-                        placeholder="0,00"
-                        className={`${inputClass} ${revenueErrors.amount ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100" : ""}`}
-                      />
-                      {revenueErrors.amount && <span className="text-xs text-rose-600">{revenueErrors.amount}</span>}
-                    </label>
-                  </div>
-
-                  <label className={fieldLabelClass}>
-                    <span>Descricao</span>
-                    <input
-                      value={revenueForm.description}
-                      onChange={(e) => setRevenueForm((current) => ({ ...current, description: e.target.value }))}
-                      placeholder="Ex.: Aluguel do salao"
-                      className={`${inputClass} ${revenueErrors.description ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100" : ""}`}
-                    />
-                    {revenueErrors.description && <span className="text-xs text-rose-600">{revenueErrors.description}</span>}
-                  </label>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className={fieldLabelClass}>
-                      <span>Data de referencia</span>
-                      <input
-                        type="date"
-                        value={revenueForm.referenceDate}
-                        onChange={(e) => setRevenueForm((current) => ({ ...current, referenceDate: e.target.value }))}
-                        className={`${inputClass} ${revenueErrors.referenceDate ? "border-rose-300 focus:border-rose-400 focus:ring-rose-100" : ""}`}
-                      />
-                      {revenueErrors.referenceDate && <span className="text-xs text-rose-600">{revenueErrors.referenceDate}</span>}
-                    </label>
-                    <label className={fieldLabelClass}>
-                      <span>Categoria</span>
-                      <select value={revenueForm.category} onChange={(e) => setRevenueForm((current) => ({ ...current, category: e.target.value as RevenueCategory }))} className={inputClass}>
-                        {revenueCategories.map((category) => (
-                          <option key={category} value={category}>
-                            {category}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <label className={fieldLabelClass}>
-                    <span>Unidade</span>
-                    <select
-                      value={revenueForm.unit}
-                      onChange={(e) => {
-                        const unit = unitOptions.find((item) => item.value === e.target.value);
-                        setRevenueForm((current) => ({
-                          ...current,
-                          unit: e.target.value,
-                          resident: unit?.resident ?? current.resident,
-                        }));
-                      }}
-                      className={inputClass}
-                    >
-                      <option value="">Selecione a unidade</option>
-                      {unitOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className={fieldLabelClass}>
-                      <span>Morador</span>
-                      <input value={revenueForm.resident} onChange={(e) => setRevenueForm((current) => ({ ...current, resident: e.target.value }))} placeholder="Nome do morador" className={inputClass} />
-                    </label>
-                    <label className={fieldLabelClass}>
-                      <span>Status</span>
-                      <select value={revenueForm.status} onChange={(e) => setRevenueForm((current) => ({ ...current, status: e.target.value as RevenueStatus }))} className={inputClass}>
-                        <option value="Recebido">Recebido</option>
-                        <option value="Em aberto">Em aberto</option>
-                        <option value="Atrasado">Atrasado</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-                    <button type="button" onClick={() => setActiveModal(null)} className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={savingRevenue}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
-                    >
-                      <PlusCircle size={16} />
-                      {savingRevenue ? "Salvando..." : "Salvar receita"}
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {activeModal === "expense" && (
-                <form onSubmit={handleCreateExpense} className="grid gap-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className={fieldLabelClass}>
-                      <span>Codigo</span>
-                      <input value={expenseForm.identifier} onChange={(e) => setExpenseForm((current) => ({ ...current, identifier: e.target.value }))} placeholder="Ex.: DESP-0426-001" className={inputClass} />
-                    </label>
-                    <label className={fieldLabelClass}>
-                      <span>Valor</span>
-                      <input type="number" min={0} step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm((current) => ({ ...current, amount: e.target.value }))} placeholder="0,00" className={inputClass} />
-                    </label>
-                  </div>
-
-                  <label className={fieldLabelClass}>
-                    <span>Descricao</span>
-                    <input value={expenseForm.description} onChange={(e) => setExpenseForm((current) => ({ ...current, description: e.target.value }))} placeholder="Ex.: Conta de energia" className={inputClass} />
-                  </label>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className={fieldLabelClass}>
-                      <span>Data de referencia</span>
-                      <input type="date" value={expenseForm.referenceDate} onChange={(e) => setExpenseForm((current) => ({ ...current, referenceDate: e.target.value }))} className={inputClass} />
-                    </label>
-                    <label className={fieldLabelClass}>
-                      <span>Vencimento</span>
-                      <input type="date" value={expenseForm.dueDate} onChange={(e) => setExpenseForm((current) => ({ ...current, dueDate: e.target.value }))} className={inputClass} />
-                    </label>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className={fieldLabelClass}>
-                      <span>Fornecedor</span>
-                      <input value={expenseForm.counterparty} onChange={(e) => setExpenseForm((current) => ({ ...current, counterparty: e.target.value }))} placeholder="Nome do fornecedor" className={inputClass} />
-                    </label>
-                    <label className={fieldLabelClass}>
-                      <span>Categoria</span>
-                      <select value={expenseForm.category} onChange={(e) => setExpenseForm((current) => ({ ...current, category: e.target.value as ExpenseCategory }))} className={inputClass}>
-                        {expenseCategories.map((category) => (
-                          <option key={category} value={category}>
-                            {category}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-                    <button type="button" onClick={() => setActiveModal(null)} className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                      Cancelar
-                    </button>
-                    <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-600">
-                      <PlusCircle size={16} />
-                      Salvar despesa
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {activeModal === "bill" && (
-                <form onSubmit={handleIssueBill} className="grid gap-4">
-                  <label className={fieldLabelClass}>
-                    <span>Unidade</span>
-                    <select
-                      value={billForm.unit}
-                      onChange={(e) => {
-                        const option = unitOptions.find((item) => item.value === e.target.value);
-                        setBillForm((current) => ({
-                          ...current,
-                          unit: e.target.value,
-                          resident: option?.resident ?? current.resident,
-                          residentEmail: option?.email ?? current.residentEmail,
-                        }));
-                      }}
-                      className={inputClass}
-                    >
-                      <option value="">Selecione a unidade</option>
-                      {unitOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className={fieldLabelClass}>
-                      <span>Morador</span>
-                      <input value={billForm.resident} onChange={(e) => setBillForm((current) => ({ ...current, resident: e.target.value }))} placeholder="Nome do morador" className={inputClass} />
-                    </label>
-                    <label className={fieldLabelClass}>
-                      <span>Email do morador</span>
-                      <input type="email" value={billForm.residentEmail} onChange={(e) => setBillForm((current) => ({ ...current, residentEmail: e.target.value }))} placeholder="morador@exemplo.com" className={inputClass} />
-                    </label>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className={fieldLabelClass}>
-                      <span>Valor</span>
-                      <input type="number" min={0} step="0.01" value={billForm.amount} onChange={(e) => setBillForm((current) => ({ ...current, amount: e.target.value }))} placeholder="0,00" className={inputClass} />
-                    </label>
-                    <label className={fieldLabelClass}>
-                      <span>Competencia</span>
-                      <input type="date" value={billForm.competenceDate} onChange={(e) => setBillForm((current) => ({ ...current, competenceDate: e.target.value }))} className={inputClass} />
-                    </label>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className={fieldLabelClass}>
-                      <span>Emissao</span>
-                      <input type="date" value={billForm.issueDate} onChange={(e) => setBillForm((current) => ({ ...current, issueDate: e.target.value }))} className={inputClass} />
-                    </label>
-                    <label className={fieldLabelClass}>
-                      <span>Vencimento</span>
-                      <input type="date" value={billForm.dueDate} onChange={(e) => setBillForm((current) => ({ ...current, dueDate: e.target.value }))} className={inputClass} />
-                    </label>
-                  </div>
-
-                  <label className={fieldLabelClass}>
-                    <span>Instrucoes</span>
-                    <textarea
-                      value={billForm.instructions}
-                      placeholder="Ex.: Não receber após 30 dias do vencimento."
-                      onChange={(e) => setBillForm((current) => ({ ...current, instructions: e.target.value }))}
-                      rows={4}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
-                    />
-                  </label>
-
-                  <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
-                    <button type="button" onClick={() => setActiveModal(null)} className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
-                      Cancelar
-                    </button>
-                    <button type="submit" className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
-                      <Receipt size={16} />
-                      Emitir boleto
-                    </button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <FinanceFormModal
+        activeModal={activeModal}
+        formError={formError}
+        revenueForm={revenueForm}
+        setRevenueForm={setRevenueForm}
+        revenueErrors={revenueErrors}
+        expenseForm={expenseForm}
+        setExpenseForm={setExpenseForm}
+        billForm={billForm}
+        setBillForm={setBillForm}
+        unitOptions={unitOptions}
+        savingRevenue={savingRevenue}
+        onClose={() => setActiveModal(null)}
+        onCreateRevenue={handleCreateRevenue}
+        onCreateExpense={handleCreateExpense}
+        onIssueBill={handleIssueBill}
+      />
     </AppLayout>
   );
 }

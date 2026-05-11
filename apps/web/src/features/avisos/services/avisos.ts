@@ -1,5 +1,6 @@
 import { supabase } from "../../../lib/supabase";
 import { getUser } from "../../auth/services/auth";
+import { getCondominioUUIDAsync } from "../../../lib/condominio";
 
 export type AvisoTipo = "Manutenção" | "Assembleia" | "Segurança" | "Informativo" | "Eventos";
 
@@ -53,27 +54,15 @@ export const AVISO_TIPO_COLORS: Record<AvisoTipo, string> = {
 
 // ── Avisos ────────────────────────────────────────────────────────────────
 
-async function getCondominioUUIDFromDB(uid: string | null): Promise<string | null> {
-  if (!uid) return null;
-  const { data } = await supabase
-    .from("usuario_condominio")
-    .select("condominio_id")
-    .eq("user_id", uid)
-    .eq("active", true)
-    .limit(1)
-    .maybeSingle();
-  return (data as any)?.condominio_id ?? null;
-}
-
 export async function listAvisos(): Promise<Aviso[]> {
   const { data: { user: authUser } } = await supabase.auth.getUser();
   const uid = authUser?.id ?? null;
-
-  const condominioUUID = getUser()?.condominioUUID ?? await getCondominioUUIDFromDB(uid);
+  const condominioUUID = await getCondominioUUIDAsync();
 
 let query = supabase
     .from("avisos")
     .select("*, profiles!created_by(name)")
+    .eq("removed", false)
     .order("fixado", { ascending: false })
     .order("created_at", { ascending: false });
 
@@ -152,7 +141,10 @@ export async function uploadAvisoAnexo(file: File): Promise<string> {
 }
 
 export async function deleteAviso(id: string): Promise<void> {
-  const { error } = await supabase.from("avisos").delete().eq("id", id);
+  const { error } = await supabase
+    .from("avisos")
+    .update({ removed: true, updated_at: new Date().toISOString() })
+    .eq("id", id);
   if (error) throw new Error(error.message);
 }
 

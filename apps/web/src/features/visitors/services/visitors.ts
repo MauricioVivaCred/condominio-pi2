@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { getUser } from "../../auth/services/auth";
 import { supabase } from "../../../lib/supabase";
+import { getCondominioUUIDAsync } from "../../../lib/condominio";
 
 export type VisitorRequestStatus =
   | "PENDENTE_CONFIRMACAO"
@@ -175,21 +176,10 @@ function mapGuest(row: VisitorGuestRow): VisitorGuest {
 }
 
 export async function listVisitorRequests(): Promise<VisitorRequest[]> {
+  const condominioUUID = await getCondominioUUIDAsync();
   const storedUser = getUser();
   const authResult = await supabase.auth.getUser();
   const currentUserId = authResult.data.user?.id ?? null;
-
-  let condominioUUID: string | null = storedUser?.condominioUUID ?? null;
-  if (!condominioUUID && currentUserId) {
-    const { data: ucData } = await supabase
-      .from("usuario_condominio")
-      .select("condominio_id")
-      .eq("user_id", currentUserId)
-      .eq("active", true)
-      .limit(1)
-      .maybeSingle();
-    condominioUUID = (ucData as any)?.condominio_id ?? null;
-  }
 
   let query = supabase
     .from("visitor_requests")

@@ -68,6 +68,7 @@ function buildGroups(role: string | undefined, plan: PlanId): NavGroup[] {
       links: [
         { label: "Visitantes", path: "/visitantes", icon: UserRoundCheck },
         { label: "Encomendas", path: "/encomendas", icon: Package },
+        ...(role === "MORADOR" ? [{ label: "Moradores", path: "/usuarios", icon: Users }] : []),
       ],
     },
     {

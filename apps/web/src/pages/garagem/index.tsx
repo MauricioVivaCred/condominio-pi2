@@ -1,8 +1,7 @@
 ﻿
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
-  BadgeInfo,
   BellRing,
   CalendarClock,
   CarFront,
@@ -12,11 +11,23 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
-  X,
 } from "lucide-react";
 import { getUser } from "../../features/auth/services/auth";
 import AppLayout from "../../features/layout/components/app-layout";
 import { listBuildingApartmentOptions, type BuildingApartmentOption } from "../../features/predio/services/predio";
+import {
+  normalizePlate,
+  isValidBrazilianPlate,
+  overlaps,
+  chunkSpots,
+  apartmentLabel,
+  labelToApartment,
+} from "./utils/garage-validation";
+import { mapSpotTone, SpotCard, CompactSpotCard } from "./components/spot-card";
+import { WaitlistModal } from "./components/waitlist-modal";
+import { ReservationModal } from "./components/reservation-modal";
+import { SpotEditModal } from "./components/spot-edit-modal";
+import { inputClass } from "./utils/garage-ui";
 import { buildSeedState } from "../../features/garage/mock";
 import { appendHistory, readGarageState, saveGarageState } from "../../features/garage/storage";
 import { getSupabaseAdmin, supabase } from "../../lib/supabase";
@@ -29,11 +40,6 @@ import type {
   TemporaryReservationStatus,
   WaitingListEntry,
 } from "../../features/garage/types";
-const inputClass = "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100";
-const modalShell = "fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 px-4 py-6";
-const modalPanel = "max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl";
-const plateInputPattern = "([A-Za-z]{3}-?[0-9]{4}|[A-Za-z]{3}-?[0-9][A-Za-z][0-9]{2})";
-const plateInputTitle = "Use formato AAA1234 ou AAA1A23 (com ou sem hifen).";
 
 type Filters = { tower: string; type: GarageSpotType | "TODOS"; status: GarageSpotStatus | "TODOS"; search: string };
 type GarageMapMode = "CORREDOR" | "APERTO";
@@ -81,42 +87,6 @@ const emptyReservation: TemporaryReservation = {
   status: "PENDENTE",
   requiresApproval: true,
 };
-function apartmentLabel(apartment: BuildingApartmentOption) {
-  return `${apartment.tower} - Andar ${apartment.level} - Ap ${apartment.number}`;
-}
-
-function labelToApartment(apartmentId: string | null, options: BuildingApartmentOption[]) {
-  if (!apartmentId) return { apartmentId: null, apartmentLabel: null, residentName: null };
-  const found = options.find((item) => item.id === apartmentId);
-  return {
-    apartmentId: found?.id ?? null,
-    apartmentLabel: found ? apartmentLabel(found) : null,
-    residentName: found?.residentName ?? null,
-  };
-}
-
-function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
-  return new Date(aStart).getTime() < new Date(bEnd).getTime() && new Date(bStart).getTime() < new Date(aEnd).getTime();
-}
-
-function normalizePlate(value: string) {
-  return value.trim().toUpperCase().replace(/\s+/g, "").replace(/-/g, "");
-}
-
-function isValidBrazilianPlate(value: string) {
-  const plate = normalizePlate(value);
-  const oldPattern = /^[A-Z]{3}[0-9]{4}$/; // AAA1234
-  const mercosulPattern = /^[A-Z]{3}[0-9][A-Z][0-9]{2}$/; // AAA1A23
-  return oldPattern.test(plate) || mercosulPattern.test(plate);
-}
-
-function chunkSpots(spots: GarageSpot[], size: number) {
-  const chunks: GarageSpot[][] = [];
-  for (let index = 0; index < spots.length; index += size) {
-    chunks.push(spots.slice(index, index + size));
-  }
-  return chunks;
-}
 
 function saveLocalMoveRequest(spot: GarageSpot, residentId: string | null, reason: string) {
   if (typeof localStorage === "undefined") return;
@@ -922,274 +892,42 @@ export default function GaragemPage() {
         </section>
       </div>
       {showWaitModal && (
-        <Modal onClose={() => setShowWaitModal(false)} title="Nova solicitacao" icon={<Users size={16} />}>
-          <div className="space-y-3">
-            <select value={waitForm.apartmentId ?? ""} onChange={(e) => handleWaitApartment(e.target.value)} className={inputClass}>
-              <option value="">Selecione o apartamento (opcional)</option>
-              {apartmentOptions.map((apt) => (
-                <option key={apt.id} value={apt.id}>
-                  {apartmentLabel(apt)}
-                </option>
-              ))}
-            </select>
-            <input value={waitForm.residentName} onChange={(e) => setWaitForm((cur) => ({ ...cur, residentName: e.target.value }))} placeholder="Nome do morador" className={inputClass} />
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input
-                value={waitForm.vehiclePlate}
-                onChange={(e) => setWaitForm((cur) => ({ ...cur, vehiclePlate: e.target.value.toUpperCase() }))}
-                placeholder="Placa"
-                className={inputClass}
-                pattern={plateInputPattern}
-                title={plateInputTitle}
-              />
-              <input value={waitForm.vehicleModel} onChange={(e) => setWaitForm((cur) => ({ ...cur, vehicleModel: e.target.value }))} placeholder="Modelo (opcional)" className={inputClass} />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block text-sm font-medium text-slate-700">
-                Criterio
-                <select
-                  value={waitForm.criteria}
-                  onChange={(e) => setWaitForm((cur) => ({ ...cur, criteria: e.target.value as WaitingListEntry["criteria"] }))}
-                  className={`${inputClass} mt-2`}
-                >
-                  <option value="ORDEM">Ordem de cadastro</option>
-                  <option value="PCD">Prioridade PCD</option>
-                  <option value="SORTEIO">Sorteio</option>
-                  <option value="RODIZIO">Rodizio</option>
-                  <option value="CONDUTA">Sindico/funcionario</option>
-                </select>
-              </label>
-              <label className="block text-sm font-medium text-slate-700">
-                Prioridade (1 = alta)
-                <input type="number" min={0} max={5} value={waitForm.priority} onChange={(e) => setWaitForm((cur) => ({ ...cur, priority: Number(e.target.value) || 1 }))} className={`${inputClass} mt-2`} />
-              </label>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowWaitModal(false)} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Cancelar</button>
-              <button type="button" onClick={addToWaitList} className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">Adicionar a fila</button>
-            </div>
-          </div>
-        </Modal>
+        <WaitlistModal
+          waitForm={waitForm}
+          setWaitForm={setWaitForm}
+          apartmentOptions={apartmentOptions}
+          onWaitApartment={handleWaitApartment}
+          onAdd={addToWaitList}
+          onClose={() => setShowWaitModal(false)}
+        />
       )}
 
       {showReserveModal && (
-        <Modal onClose={() => setShowReserveModal(false)} title="Nova reserva" icon={<CalendarClock size={16} />}>
-          <div className="space-y-3">
-            <input value={reservationForm.visitorName} onChange={(e) => setReservationForm((cur) => ({ ...cur, visitorName: e.target.value }))} placeholder="Visitante ou servico" className={inputClass} />
-            <input
-              value={reservationForm.plate}
-              onChange={(e) => setReservationForm((cur) => ({ ...cur, plate: e.target.value.toUpperCase() }))}
-              placeholder="Placa"
-              className={inputClass}
-              pattern={plateInputPattern}
-              title={plateInputTitle}
-            />
-            <select value={reservationForm.apartmentId ?? ""} onChange={(e) => handleReservationApartment(e.target.value)} className={inputClass}>
-              <option value="">Vincular apartamento</option>
-              {apartmentOptions.map((apt) => (
-                <option key={apt.id} value={apt.id}>
-                  {apartmentLabel(apt)}
-                </option>
-              ))}
-            </select>
-            <select value={reservationForm.spotId ?? ""} onChange={(e) => linkSpotFromReservation(e.target.value)} className={inputClass}>
-              <option value="">Reservar vaga especifica (opcional)</option>
-              {state.spots
-                .filter((spot) => spot.type === "VISITANTE" || spot.type === "ROTATIVA" || spot.type === "TEMPORARIA")
-                .map((spot) => (
-                  <option key={spot.id} value={spot.id}>
-                    {spot.code} - {spot.tower} ({spot.status})
-                  </option>
-                ))}
-            </select>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input type="datetime-local" value={reservationForm.startAt} onChange={(e) => setReservationForm((cur) => ({ ...cur, startAt: e.target.value }))} className={inputClass} />
-              <input type="datetime-local" value={reservationForm.endAt} onChange={(e) => setReservationForm((cur) => ({ ...cur, endAt: e.target.value }))} className={inputClass} />
-            </div>
-            <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-700">
-              <input type="checkbox" checked={reservationForm.requiresApproval} onChange={(e) => setReservationForm((cur) => ({ ...cur, requiresApproval: e.target.checked }))} className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500" />
-              Exigir aprovacao da portaria
-            </label>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowReserveModal(false)} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Cancelar</button>
-              <button type="button" onClick={handleCreateReservation} className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">Salvar reserva</button>
-            </div>
-          </div>
-        </Modal>
+        <ReservationModal
+          reservationForm={reservationForm}
+          setReservationForm={setReservationForm}
+          apartmentOptions={apartmentOptions}
+          spots={state.spots}
+          onReservationApartment={handleReservationApartment}
+          onLinkSpot={linkSpotFromReservation}
+          onCreate={handleCreateReservation}
+          onClose={() => setShowReserveModal(false)}
+        />
       )}
 
       {showSpotModal && (
-        <Modal onClose={() => setShowSpotModal(false)} title={selectedSpotId ? "Editar vaga" : "Nova vaga"} icon={<ShieldCheck size={16} />}>
-          <div className="grid gap-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input value={spotForm.code} onChange={(e) => setSpotForm((c) => ({ ...c, code: e.target.value.toUpperCase() }))} placeholder="Codigo da vaga" className={inputClass} />
-              <input value={spotForm.tower} onChange={(e) => setSpotForm((c) => ({ ...c, tower: e.target.value }))} placeholder="Bloco / torre" className={inputClass} />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input value={spotForm.level} onChange={(e) => setSpotForm((c) => ({ ...c, level: e.target.value }))} placeholder="Setor / subsolo" className={inputClass} />
-              <select value={spotForm.type} onChange={(e) => setSpotForm((c) => ({ ...c, type: e.target.value as GarageSpotType }))} className={inputClass}>
-                <option value="FIXA">Fixa</option>
-                <option value="ROTATIVA">Rotativa</option>
-                <option value="VISITANTE">Visitante</option>
-                <option value="PCD">PCD</option>
-                <option value="CARGA">Carga/descarga</option>
-                <option value="TEMPORARIA">Temporaria</option>
-              </select>
-            </div>
-            <select value={spotForm.status} onChange={(e) => setSpotForm((c) => ({ ...c, status: e.target.value as GarageSpotStatus }))} className={inputClass}>
-              <option value="DISPONIVEL">Disponivel</option>
-              <option value="OCUPADA">Ocupada</option>
-              <option value="RESERVADA">Reservada</option>
-              <option value="BLOQUEADA">Bloqueada</option>
-              <option value="MANUTENCAO">Manutencao</option>
-            </select>
-            <select
-              value={spotForm.apartmentId ?? ""}
-              onChange={(e) => {
-                const mapped = labelToApartment(e.target.value, apartmentOptions);
-                setSpotForm((c) => ({ ...c, ...mapped }));
-              }}
-              className={inputClass}
-            >
-              <option value="">Selecione a unidade</option>
-              {apartmentOptions.map((option) => (
-                <option key={option.id} value={option.id}>
-                  {apartmentLabel(option)}
-                </option>
-              ))}
-            </select>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input value={spotForm.residentName ?? ""} onChange={(e) => setSpotForm((c) => ({ ...c, residentName: e.target.value }))} placeholder="Morador responsavel" className={inputClass} />
-              <input
-                value={spotForm.vehiclePlate ?? ""}
-                onChange={(e) => setSpotForm((c) => ({ ...c, vehiclePlate: e.target.value.toUpperCase() }))}
-                placeholder="Placa"
-                className={inputClass}
-                pattern={plateInputPattern}
-                title={plateInputTitle}
-              />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input value={spotForm.vehicleModel ?? ""} onChange={(e) => setSpotForm((c) => ({ ...c, vehicleModel: e.target.value }))} placeholder="Modelo do veiculo" className={inputClass} />
-              <input value={spotForm.vehicleColor ?? ""} onChange={(e) => setSpotForm((c) => ({ ...c, vehicleColor: e.target.value }))} placeholder="Cor" className={inputClass} />
-            </div>
-            <textarea value={spotForm.notes ?? ""} onChange={(e) => setSpotForm((c) => ({ ...c, notes: e.target.value }))} rows={4} placeholder="Observacoes da vaga" className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100" />
-            <div className="flex gap-3 justify-end">
-              <button type="button" onClick={() => setShowSpotModal(false)} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">Cancelar</button>
-              <button type="button" onClick={handleSaveSpot} className="rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800">Salvar</button>
-              <button type="button" onClick={handleDeleteSpot} disabled={!selectedSpotId} className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">Excluir</button>
-            </div>
-          </div>
-        </Modal>
+        <SpotEditModal
+          spotForm={spotForm}
+          setSpotForm={setSpotForm}
+          apartmentOptions={apartmentOptions}
+          selectedSpotId={selectedSpotId}
+          onSave={handleSaveSpot}
+          onDelete={handleDeleteSpot}
+          onClose={() => setShowSpotModal(false)}
+        />
       )}
     </AppLayout>
   );
 }
-type SpotTone = { shell: string; badge: string; car: string; line: string };
 
-function mapSpotTone(status: GarageSpotStatus): SpotTone {
-  return {
-    DISPONIVEL: {
-      shell: "border-emerald-200 bg-emerald-50/90 text-emerald-900",
-      badge: "bg-emerald-600 text-white",
-      car: "bg-emerald-200 text-emerald-700",
-      line: "border-emerald-300",
-    },
-    OCUPADA: {
-      shell: "border-sky-200 bg-sky-50/90 text-sky-950",
-      badge: "bg-sky-700 text-white",
-      car: "bg-sky-200 text-sky-700",
-      line: "border-sky-300",
-    },
-    RESERVADA: {
-      shell: "border-amber-200 bg-amber-50/90 text-amber-950",
-      badge: "bg-amber-500 text-white",
-      car: "bg-amber-200 text-amber-700",
-      line: "border-amber-300",
-    },
-    BLOQUEADA: {
-      shell: "border-rose-200 bg-rose-50/90 text-rose-950",
-      badge: "bg-rose-600 text-white",
-      car: "bg-rose-200 text-rose-700",
-      line: "border-rose-300",
-    },
-    MANUTENCAO: {
-      shell: "border-rose-200 bg-rose-50/90 text-rose-950",
-      badge: "bg-rose-600 text-white",
-      car: "bg-rose-200 text-rose-700",
-      line: "border-rose-300",
-    },
-  }[status];
-}
-
-function SpotCard({ spot, tone, align = "left" }: { spot: GarageSpot; tone: SpotTone; align?: "left" | "right" }) {
-  return (
-    <>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="m-0 text-sm font-black tracking-[-0.03em]">{spot.code}</p>
-          <p className="mt-1 text-[11px] text-slate-600">
-            {spot.type} · {spot.tower}
-          </p>
-        </div>
-        <span className={`rounded-full px-2 py-1 text-[10px] font-bold ${tone.badge}`}>{spot.status}</span>
-      </div>
-
-      <div className={`mt-4 rounded-[20px] border-2 border-dashed ${tone.line} bg-white/70 p-3`}>
-        <div className={`flex h-11 w-16 items-center justify-center rounded-2xl ${tone.car} ${align === "right" ? "ml-auto" : ""}`}>
-          <CarFront size={20} />
-        </div>
-        <p className="mt-3 truncate text-sm font-semibold text-slate-800">{spot.vehicleModel || "Sem veiculo"}</p>
-        <p className="mt-1 truncate text-xs text-slate-500">{spot.vehiclePlate || "Placa nao cadastrada"}</p>
-        <p className="mt-2 truncate text-[11px] text-slate-500">{spot.apartmentLabel || "Sem unidade vinculada"}</p>
-        {spot.notes && (
-          <p className="mt-2 text-[11px] text-slate-500">
-            <BadgeInfo size={12} className="inline mr-1" />
-            {spot.notes}
-          </p>
-        )}
-      </div>
-    </>
-  );
-}
-
-function CompactSpotCard({ spot, tone, direction }: { spot: GarageSpot; tone: SpotTone; direction: "up" | "down" }) {
-  return (
-    <div className="flex h-full flex-col justify-between gap-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="m-0 truncate text-xs font-black tracking-[-0.02em]">{spot.code}</p>
-          <p className="mt-0.5 truncate text-[10px] font-semibold text-slate-500">{spot.apartmentLabel || "Sem unidade"}</p>
-        </div>
-        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${tone.badge}`}>{spot.status}</span>
-      </div>
-      <div className={`mx-auto flex h-10 w-16 items-center justify-center rounded-xl ${tone.car}`}>
-        <CarFront size={20} className={direction === "up" ? "rotate-180" : ""} />
-      </div>
-      <div className="min-w-0">
-        <p className="truncate text-xs font-semibold text-slate-800">{spot.vehicleModel || "Sem veiculo"}</p>
-        <p className="truncate text-[10px] text-slate-500">{spot.vehiclePlate || "Placa nao cadastrada"}</p>
-      </div>
-    </div>
-  );
-}
-
-function Modal({ title, icon, onClose, children }: { title: string; icon: ReactNode; onClose: () => void; children: ReactNode }) {
-  return (
-    <div className={modalShell} onClick={onClose}>
-      <div className={modalPanel} onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-4">
-          <div className="flex items-center gap-2 text-slate-900">
-            <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">{icon}</span>
-            <h3 className="m-0 text-lg font-semibold">{title}</h3>
-          </div>
-          <button onClick={onClose} className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-700">
-            <X size={16} />
-          </button>
-        </div>
-        <div className="pt-4">{children}</div>
-      </div>
-    </div>
-  );
-}
 

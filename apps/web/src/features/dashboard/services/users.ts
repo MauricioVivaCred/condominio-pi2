@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getSupabaseAdmin, supabase } from "../../../lib/supabase";
+import { getSupabaseAdmin } from "../../../lib/supabase";
 import { syncApartmentAssignmentForUser } from "../../predio/services/predio";
 
 export type ResidentType = "PROPRIETARIO" | "INQUILINO" | "VISITANTE";
@@ -15,6 +15,8 @@ export type UserRecord = {
   role: "ADMIN" | "MORADOR" | "PORTEIRO";
   resident_type: ResidentType;
   status: UserStatus;
+  removed: boolean;
+  data_nascimento: string | null;
   apartment_ids: string[];
   apartments: Array<{
     id: string;
@@ -29,17 +31,12 @@ export type UserRecord = {
   created_at: string;
 };
 
-export type CreateUserPayload = {
-  name: string;
+export type InviteUserPayload = {
   email: string;
-  phone: string;
-  password: string;
-  carPlate: string;
-  petsCount: number | null;
   role: "ADMIN" | "MORADOR" | "PORTEIRO";
   residentType: ResidentType;
-  status: UserStatus;
   apartmentId: string | null;
+  condominioId?: string | null;
 };
 
 export type UpdateUserPayload = {
@@ -63,6 +60,8 @@ export type ApartmentOption = {
   resident_id: string | null;
 };
 
+export type CondominioBrief = { id: string; name: string };
+
 type ProfileRow = {
   id: string;
   name: string;
@@ -73,6 +72,8 @@ type ProfileRow = {
   role?: "ADMIN" | "MORADOR" | "PORTEIRO" | null;
   resident_type?: ResidentType | null;
   status?: UserStatus | null;
+  removed?: boolean | null;
+  data_nascimento?: string | null;
   created_at?: string | null;
 };
 
@@ -98,6 +99,8 @@ function normalizeProfile(row: ProfileRow, assignment?: ApartmentAssignmentRow):
     role: (row.role ?? "MORADOR") as "ADMIN" | "MORADOR" | "PORTEIRO",
     resident_type: (row.resident_type ?? "PROPRIETARIO") as ResidentType,
     status: (row.status ?? "ATIVO") as UserStatus,
+    removed: row.removed ?? false,
+    data_nascimento: row.data_nascimento ?? null,
     apartment_ids: apartments.map((item) => item.id),
     apartments: apartments.map((item) => ({
       id: item.id,
@@ -156,7 +159,7 @@ async function listProfiles(client: SupabaseClient): Promise<UserRecord[]> {
   const assignments = await listApartmentAssignments(client);
   const extended = await client
     .from("profiles")
-    .select("id, name, email, phone, car_plate, pets_count, role, resident_type, status, created_at")
+    .select("id, name, email, phone, car_plate, pets_count, role, resident_type, status, removed, data_nascimento, created_at")
     .order("created_at", { ascending: false });
 
   if (!extended.error) {
@@ -179,7 +182,7 @@ async function listProfiles(client: SupabaseClient): Promise<UserRecord[]> {
 
   const fallbackWithoutPhone = await client
     .from("profiles")
-    .select("id, name, email, car_plate, pets_count, role, resident_type, status, created_at")
+    .select("id, name, email, car_plate, pets_count, role, resident_type, status, removed, data_nascimento, created_at")
     .order("created_at", { ascending: false });
 
   if (!fallbackWithoutPhone.error) {
@@ -202,7 +205,7 @@ async function listProfiles(client: SupabaseClient): Promise<UserRecord[]> {
 
   const fallbackWithoutPhoneAndCarPlate = await client
     .from("profiles")
-    .select("id, name, email, pets_count, role, resident_type, status, created_at")
+    .select("id, name, email, pets_count, role, resident_type, status, removed, data_nascimento, created_at")
     .order("created_at", { ascending: false });
 
   if (!fallbackWithoutPhoneAndCarPlate.error) {
@@ -225,7 +228,7 @@ async function listProfiles(client: SupabaseClient): Promise<UserRecord[]> {
 
   const fallback = await client
     .from("profiles")
-    .select("id, name, email, role, resident_type, status, created_at")
+    .select("id, name, email, role, resident_type, status, removed, data_nascimento, created_at")
     .order("created_at", { ascending: false });
 
   if (!fallback.error) {
@@ -248,7 +251,7 @@ async function listProfiles(client: SupabaseClient): Promise<UserRecord[]> {
 
   const basic = await client
     .from("profiles")
-    .select("id, name, email, role, created_at")
+    .select("id, name, email, role, removed, data_nascimento, created_at")
     .order("created_at", { ascending: false });
 
   if (basic.error) {
@@ -278,7 +281,7 @@ async function getProfileById(client: SupabaseClient, id: string): Promise<UserR
   const assignments = await listApartmentAssignments(client);
   const extended = await client
     .from("profiles")
-    .select("id, name, email, phone, car_plate, pets_count, role, resident_type, status, created_at")
+    .select("id, name, email, phone, car_plate, pets_count, role, resident_type, status, removed, data_nascimento, created_at")
     .eq("id", id)
     .single();
 
@@ -300,7 +303,7 @@ async function getProfileById(client: SupabaseClient, id: string): Promise<UserR
 
   const fallbackWithoutPhone = await client
     .from("profiles")
-    .select("id, name, email, car_plate, pets_count, role, resident_type, status, created_at")
+    .select("id, name, email, car_plate, pets_count, role, resident_type, status, removed, data_nascimento, created_at")
     .eq("id", id)
     .single();
 
@@ -322,7 +325,7 @@ async function getProfileById(client: SupabaseClient, id: string): Promise<UserR
 
   const fallbackWithoutPhoneAndCarPlate = await client
     .from("profiles")
-    .select("id, name, email, pets_count, role, resident_type, status, created_at")
+    .select("id, name, email, pets_count, role, resident_type, status, removed, data_nascimento, created_at")
     .eq("id", id)
     .single();
 
@@ -344,7 +347,7 @@ async function getProfileById(client: SupabaseClient, id: string): Promise<UserR
 
   const fallback = await client
     .from("profiles")
-    .select("id, name, email, role, resident_type, status, created_at")
+    .select("id, name, email, role, resident_type, status, removed, data_nascimento, created_at")
     .eq("id", id)
     .single();
 
@@ -366,7 +369,7 @@ async function getProfileById(client: SupabaseClient, id: string): Promise<UserR
 
   const basic = await client
     .from("profiles")
-    .select("id, name, email, role, created_at")
+    .select("id, name, email, role, removed, data_nascimento, created_at")
     .eq("id", id)
     .single();
 
@@ -396,7 +399,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function buildUserRecordFromPayload(id: string, payload: Omit<CreateUserPayload, "password">): UserRecord {
+function buildUserRecordFromPayload(id: string, payload: UpdateUserPayload): UserRecord {
   return {
     id,
     name: payload.name,
@@ -407,6 +410,8 @@ function buildUserRecordFromPayload(id: string, payload: Omit<CreateUserPayload,
     role: payload.role,
     resident_type: payload.residentType,
     status: payload.status,
+    removed: false,
+    data_nascimento: null,
     apartment_ids: payload.apartmentId ? [payload.apartmentId] : [],
     apartments: [],
     apartment_id: payload.apartmentId,
@@ -415,80 +420,6 @@ function buildUserRecordFromPayload(id: string, payload: Omit<CreateUserPayload,
     apartment_level: null,
     created_at: new Date().toISOString(),
   };
-}
-
-async function upsertProfileWithFallbacks(
-  admin: SupabaseClient,
-  payload: {
-    id: string;
-    name: string;
-    email: string;
-    phone: string;
-    carPlate: string;
-    petsCount: number | null;
-    role: "ADMIN" | "MORADOR" | "PORTEIRO";
-    residentType: ResidentType;
-    status: UserStatus;
-  }
-) {
-  const attempts = [0, 250, 750];
-  let lastError: string | null = null;
-
-  for (const delay of attempts) {
-    if (delay > 0) await sleep(delay);
-
-    const extendedUpsert = await admin.from("profiles").upsert({
-      id: payload.id,
-      name: payload.name,
-      email: payload.email,
-      phone: payload.phone,
-      car_plate: payload.carPlate || null,
-      pets_count: payload.petsCount,
-      role: payload.role,
-      resident_type: payload.residentType,
-      status: payload.status,
-    } as never);
-
-    if (!extendedUpsert.error) {
-      return;
-    }
-
-    lastError = extendedUpsert.error.message;
-
-    const fallbackUpsert = await admin.from("profiles").upsert({
-      id: payload.id,
-      name: payload.name,
-      email: payload.email,
-      car_plate: payload.carPlate || null,
-      pets_count: payload.petsCount,
-      role: payload.role,
-      resident_type: payload.residentType,
-      status: payload.status,
-    } as never);
-
-    if (!fallbackUpsert.error) {
-      return;
-    }
-
-    lastError = fallbackUpsert.error.message;
-
-    const basicFallbackUpsert = await admin.from("profiles").upsert({
-      id: payload.id,
-      name: payload.name,
-      email: payload.email,
-      role: payload.role,
-      resident_type: payload.residentType,
-      status: payload.status,
-    } as never);
-
-    if (!basicFallbackUpsert.error) {
-      return;
-    }
-
-    lastError = basicFallbackUpsert.error.message;
-  }
-
-  throw new Error(lastError ?? "Usuario criado, mas erro ao salvar perfil.");
 }
 
 async function updateProfileWithFallbacks(
@@ -561,8 +492,8 @@ async function updateProfileWithFallbacks(
   throw new Error(lastError ?? "Erro ao atualizar perfil do usuário.");
 }
 
-async function getCondominioUsersIds(condominioUUID: string): Promise<string[]> {
-  const { data } = await supabase
+async function getCondominioUsersIds(admin: SupabaseClient, condominioUUID: string): Promise<string[]> {
+  const { data } = await admin
     .from("usuario_condominio")
     .select("user_id")
     .eq("condominio_id", condominioUUID)
@@ -576,7 +507,7 @@ export async function listUsers(condominioUUID?: string | null): Promise<UserRec
 
   if (!condominioUUID) return allUsers;
 
-  const userIds = await getCondominioUsersIds(condominioUUID);
+  const userIds = await getCondominioUsersIds(admin, condominioUUID);
   const idSet = new Set(userIds);
   return allUsers.filter((user) => idSet.has(user.id));
 }
@@ -595,72 +526,81 @@ export async function listApartmentOptions(): Promise<ApartmentOption[]> {
 }
 
 export async function deleteUserRecord(userId: string): Promise<void> {
+  await setUserRemoved(userId, true);
+}
+
+export async function setUserRemoved(userId: string, removed: boolean): Promise<void> {
   const admin = getSupabaseAdmin();
 
-  const clearAssignments = await admin
-    .from("condo_apartments")
-    .update({ resident_id: null } as never)
-    .eq("resident_id", userId);
+  const { error } = await admin
+    .from("profiles")
+    .update({ removed } as never)
+    .eq("id", userId);
 
-  if (clearAssignments.error) {
-    throw new Error(clearAssignments.error.message);
-  }
+  if (error) throw new Error(error.message);
 
-  const deleted = await admin.auth.admin.deleteUser(userId);
-  if (deleted.error) {
-    throw new Error(deleted.error.message);
-  }
+  // Ban / unban no Supabase Auth para bloquear o login de fato
+  const banDuration = removed ? "876600h" : "none";
+  await admin.auth.admin.updateUserById(userId, { ban_duration: banDuration });
 
-  const cachedUsers = readUsersCache().filter((user) => user.id !== userId);
+  const cachedUsers = readUsersCache().map((u) =>
+    u.id === userId ? { ...u, removed } : u
+  );
   writeUsersCache(cachedUsers);
 }
 
-export async function createUser(payload: CreateUserPayload): Promise<UserRecord> {
+export async function listCondominiosBasic(): Promise<CondominioBrief[]> {
   const admin = getSupabaseAdmin();
-  const { data, error } = await admin.auth.admin.createUser({
-    email: payload.email,
-    password: payload.password,
-    email_confirm: true,
-    user_metadata: {
-      name: payload.name,
-      role: payload.role,
-      phone: payload.phone,
-      car_plate: payload.carPlate,
-      pets_count: payload.petsCount,
-      resident_type: payload.residentType,
-      status: payload.status,
-    },
+  const { data, error } = await admin
+    .from("condominios")
+    .select("id, name")
+    .order("name");
+  if (error) return [];
+  return (data ?? []) as CondominioBrief[];
+}
+
+export async function inviteUser(payload: InviteUserPayload): Promise<void> {
+  const admin = getSupabaseAdmin();
+  const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin;
+
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(payload.email, {
+    redirectTo: `${appUrl}/completar-perfil`,
+    data: { role: payload.role, resident_type: payload.residentType },
   });
 
   if (error) {
     if (error.message.toLowerCase().includes("already registered")) {
-      throw new Error("Email ja cadastrado.");
+      throw new Error("Email já cadastrado.");
     }
     throw new Error(error.message);
   }
 
-  await upsertProfileWithFallbacks(admin, {
-    id: data.user.id,
-    name: payload.name,
+  const userId = data.user.id;
+
+  // Cria perfil mínimo imediatamente
+  await admin.from("profiles").upsert({
+    id: userId,
+    name: "",
     email: payload.email,
-    phone: payload.phone,
-    carPlate: payload.carPlate,
-    petsCount: payload.petsCount,
     role: payload.role,
-    residentType: payload.residentType,
-    status: payload.status,
-  });
+    resident_type: payload.residentType,
+    status: "ATIVO",
+    removed: false,
+  } as never);
 
-  const fallbackUser = buildUserRecordFromPayload(data.user.id, payload);
-  updateCachedUser(fallbackUser);
-  await syncApartmentAssignmentForUser(data.user.id, payload.apartmentId);
+  // Vincula ao condomínio
+  if (payload.condominioId) {
+    await admin.from("usuario_condominio").upsert({
+      user_id: userId,
+      condominio_id: payload.condominioId,
+      active: true,
+      role: payload.role,
+    } as never);
+  }
 
-  try {
-    const user = await getProfileById(admin, data.user.id);
-    updateCachedUser(user);
-    return user;
-  } catch {
-    return fallbackUser;
+  // Vincula ao apartamento se informado
+  if (payload.apartmentId) {
+    await syncApartmentAssignmentForUser(userId, payload.apartmentId);
   }
 }
 
