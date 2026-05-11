@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import AppLayout from "../../features/layout/components/app-layout";
 import { getUser } from "../../features/auth/services/auth";
-import { canAddResident, getPlanLimits, PLAN_LABELS, type PlanId } from "../../config/plans";
+import { getPlanLimits, PLAN_LABELS, type PlanId } from "../../config/plans";
 import { supabase } from "../../lib/supabase";
 import { fmtDate } from "../../lib/format";
 import {
@@ -188,6 +188,34 @@ export default function UsuariosPage() {
     + [filterStatus, filterHabilitado, filterCondominioId].filter(Boolean).length
     + (sortKey !== "created_at" || sortDir !== "desc" ? 1 : 0);
 
+  // ── Limites do plano ───────────────────────────────────────────────────────
+  const planLimits = getPlanLimits(condPlan);
+  const planLabel = PLAN_LABELS[condPlan ?? "go"] ?? condPlan ?? "go";
+  const activeUsers = users.filter((u) => !u.removed);
+  const residentCount = activeUsers.filter((u) => u.role === "MORADOR").length;
+  const adminCount = activeUsers.filter((u) => u.role === "ADMIN").length;
+  const residentLimitReached = !isMasterAdmin && residentCount >= planLimits.maxResidents;
+  const adminLimitReached = !isMasterAdmin && adminCount >= planLimits.maxAdmins;
+
+  function checkPlanLimit(role: "ADMIN" | "MORADOR" | "PORTEIRO", previousRole?: "ADMIN" | "MORADOR" | "PORTEIRO") {
+    if (isMasterAdmin) return;
+    // Só valida se a role está mudando (ou é nova)
+    if (role === "MORADOR" && role !== previousRole) {
+      if (residentCount >= planLimits.maxResidents) {
+        throw new Error(
+          `Limite de ${planLimits.maxResidents} moradores do plano ${planLabel} atingido.`,
+        );
+      }
+    }
+    if (role === "ADMIN" && role !== previousRole) {
+      if (adminCount >= planLimits.maxAdmins) {
+        throw new Error(
+          `Limite de ${planLimits.maxAdmins} síndico(s)/admin(s) do plano ${planLabel} atingido.`,
+        );
+      }
+    }
+  }
+
   // ── Modals ─────────────────────────────────────────────────────────────────
   function openInvite() {
     setInviteForm({ email: "", role: "MORADOR", residentType: "PROPRIETARIO", apartmentId: null, condominioId: currentUser?.condominioUUID ?? null });
@@ -215,11 +243,7 @@ export default function UsuariosPage() {
     setSubmitting(true);
     setFormError("");
     try {
-      const residentCount = users.filter((u) => u.role === "MORADOR" && !u.removed).length;
-      if (inviteForm.role === "MORADOR" && !canAddResident(condPlan, residentCount)) {
-        const limits = getPlanLimits(condPlan);
-        throw new Error(`Limite de ${limits.maxResidents} moradores do plano ${PLAN_LABELS[condPlan ?? "go"] ?? condPlan} atingido.`);
-      }
+      checkPlanLimit(inviteForm.role);
       await inviteUser(inviteForm);
       setInviteOpen(false);
       loadData();
@@ -248,6 +272,7 @@ export default function UsuariosPage() {
       return;
     }
     try {
+      checkPlanLimit(editForm.role, editingUser.role);
       await updateUserRecord({ id: editingUser.id, ...editForm, phone, carPlate: plate } satisfies UpdateUserPayload);
       setEditOpen(false);
       loadData();
@@ -324,10 +349,23 @@ export default function UsuariosPage() {
             </div>
           </div>
           {isAdmin && (
-            <button onClick={openInvite}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-sm font-semibold cursor-pointer border-none transition-all shrink-0 shadow-sm shadow-indigo-200">
-              <Plus size={15} /> Convidar usuário
-            </button>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              <button
+                onClick={openInvite}
+                disabled={residentLimitReached && adminLimitReached}
+                title={residentLimitReached && adminLimitReached ? `Limite do plano ${planLabel} atingido` : undefined}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold cursor-pointer border-none transition-all shadow-sm shadow-indigo-200"
+              >
+                <Plus size={15} /> Convidar usuário
+              </button>
+              {!isMasterAdmin && condPlan && (
+                <p className="text-[11px] text-slate-400">
+                  {residentCount}/{planLimits.maxResidents === Infinity ? "∞" : planLimits.maxResidents} moradores
+                  {" · "}
+                  {adminCount}/{planLimits.maxAdmins === Infinity ? "∞" : planLimits.maxAdmins} admin(s)
+                </p>
+              )}
+            </div>
           )}
         </div>
 
