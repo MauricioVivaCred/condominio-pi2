@@ -166,22 +166,25 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
 
   localStorage.setItem("token", data.session.access_token);
 
+  // Role do perfil ou fallback via user_metadata (para MASTER_ADMIN sem RLS)
+  const resolvedRole = profile?.role ?? (data.user.user_metadata?.role as string | undefined);
+
   // MASTER_ADMIN não precisa estar vinculado a nenhum condomínio
-  if (profile?.role === "MASTER_ADMIN") {
+  if (resolvedRole === "MASTER_ADMIN") {
     const user: User = {
       id: data.user.id,
-      name: profile.name ?? data.user.email ?? "",
+      name: profile?.name ?? data.user.email ?? "",
       email: data.user.email ?? "",
-      phone: profile.phone ?? "",
+      phone: profile?.phone ?? "",
       role: "MASTER_ADMIN",
       condominioId: null,
       condominioUUID: null,
       condominioName: undefined,
-      residentType: profile.resident_type ?? undefined,
-      status: profile.status ?? undefined,
-      carPlate: profile.car_plate ?? undefined,
-      petsCount: profile.pets_count ?? undefined,
-      avatarUrl: profile.avatar_url ?? undefined,
+      residentType: profile?.resident_type ?? undefined,
+      status: profile?.status ?? undefined,
+      carPlate: profile?.car_plate ?? undefined,
+      petsCount: profile?.pets_count ?? undefined,
+      avatarUrl: profile?.avatar_url ?? undefined,
     };
     setStoredUser(user);
     return { requiresSelection: false, user };
@@ -198,11 +201,11 @@ async function loginViaSupabase(email: string, password: string): Promise<LoginR
   );
 
   // Filtra apenas condomínios ativos
-  const activeUcRows = profile?.role === "MASTER_ADMIN"
+  const activeUcRows = resolvedRole === "MASTER_ADMIN"
     ? ucRows
     : ucRows.filter((r) => condMap.get(r.condominio_id)?.active !== false);
 
-  if (activeUcRows.length === 0 && profile?.role !== "MASTER_ADMIN") {
+  if (activeUcRows.length === 0 && resolvedRole !== "MASTER_ADMIN") {
     await supabase.auth.signOut();
     localStorage.removeItem("token");
     throw new Error("CONDOMINIO_INATIVO");
