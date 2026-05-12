@@ -246,7 +246,7 @@ export function MoradorModal({
                       </td>
                       <td className="px-4 py-3 text-slate-600 hidden sm:table-cell">{r.phone || "—"}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+                        <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
                           r.status === "Proprietário"
                             ? "border-indigo-200 bg-indigo-50 text-indigo-700"
                             : r.status === "Inquilino"
