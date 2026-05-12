@@ -44,6 +44,7 @@ import {
   type LateFeeBreakdown,
 } from "../../features/financeiro/services/financeiro";
 import { supabase } from "../../lib/supabase";
+import { listFornecedores, type Fornecedor } from "../../features/financeiro/services/fornecedores";
 import { fetchBuilding, getMockBuilding, type Floor } from "../../features/predio/services/predio";
 import {
   type ExpenseCategory,
@@ -144,6 +145,7 @@ export default function FinanceiroPage() {
   const [building, setBuilding] = useState<Floor[]>(() => getMockBuilding());
   const [entries, setEntries] = useState<FinanceEntry[]>([]);
   const [bills, setBills] = useState<FinanceBill[]>([]);
+  const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [residentOwnedUnits, setResidentOwnedUnits] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -199,15 +201,17 @@ export default function FinanceiroPage() {
       // Mark overdue first so the list reflects current state
       await markOverdueBills().catch(() => null);
 
-      const [floors, financeEntries, financeBills] = await Promise.all([
+      const [floors, financeEntries, financeBills, forn] = await Promise.all([
         fetchBuilding().catch(() => getMockBuilding()),
         listFinanceEntries(),
         listFinanceBills({ limit: 200 }),
+        listFornecedores().catch(() => []),
       ]);
 
       setBuilding(floors);
       setEntries(financeEntries);
       setBills(financeBills);
+      setFornecedores(forn);
       setSelectedBillId((current) => current ?? financeBills[0]?.id ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar financeiro.");
@@ -1138,6 +1142,7 @@ export default function FinanceiroPage() {
         batchForm={batchForm}
         setBatchForm={setBatchForm}
         unitOptions={unitOptions}
+        fornecedores={fornecedores}
         savingRevenue={savingRevenue}
         savingBatch={savingBatch}
         onClose={() => setActiveModal(null)}

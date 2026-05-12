@@ -7,6 +7,7 @@ import type {
   UnitOption,
 } from "../utils/finance-calc";
 import { revenueCategories, expenseCategories } from "../utils/finance-calc";
+import type { Fornecedor } from "../../../features/financeiro/services/fornecedores";
 
 type FinanceModal = "revenue" | "expense" | "bill" | "batch" | null;
 
@@ -54,6 +55,7 @@ type Props = {
   batchForm: BatchForm;
   setBatchForm: React.Dispatch<React.SetStateAction<BatchForm>>;
   unitOptions: UnitOption[];
+  fornecedores: Fornecedor[];
   savingRevenue: boolean;
   savingBatch: boolean;
   onClose: () => void;
@@ -69,7 +71,7 @@ export function FinanceFormModal({
   expenseForm, setExpenseForm,
   billForm, setBillForm,
   batchForm, setBatchForm,
-  unitOptions, savingRevenue, savingBatch,
+  unitOptions, fornecedores, savingRevenue, savingBatch,
   onClose, onCreateRevenue, onCreateExpense, onIssueBill, onIssueBatch,
 }: Props) {
   const [batchStep, setBatchStep] = useState<"config" | "preview">("config");
@@ -273,9 +275,28 @@ export function FinanceFormModal({
                 </label>
               </div>
 
+              {fornecedores.length > 0 && (
+                <label className={fieldLabelClass}>
+                  <span>Fornecedor cadastrado</span>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const f = fornecedores.find((x) => x.id === e.target.value);
+                      if (f) setExpenseForm((c) => ({ ...c, counterparty: f.nome, category: f.categoria }));
+                    }}
+                    className={inputClass}
+                  >
+                    <option value="">Selecionar fornecedor...</option>
+                    {fornecedores.map((f) => (
+                      <option key={f.id} value={f.id}>{f.nome} ({f.categoria})</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className={fieldLabelClass}>
-                  <span>Fornecedor</span>
+                  <span>Fornecedor / Contrapartida</span>
                   <input value={expenseForm.counterparty} onChange={(e) => setExpenseForm((c) => ({ ...c, counterparty: e.target.value }))} placeholder="Nome do fornecedor" className={inputClass} />
                 </label>
                 <label className={fieldLabelClass}>

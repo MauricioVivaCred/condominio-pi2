@@ -26,6 +26,7 @@ import {
   UserRoundCheck,
   Users,
   BarChart2,
+  Truck,
   Wallet,
   Waves,
   X,
@@ -110,6 +111,7 @@ function buildGroups(role: string | undefined, plan: PlanId): NavGroup[] {
       const finLinks: NavLink[] = [
         { label: "Geral", path: "/financeiro", icon: CircleDollarSign },
         { label: "Contas", path: "/financeiro/contas", icon: Wallet },
+        { label: "Fornecedores", path: "/financeiro/fornecedores", icon: Truck },
       ];
       groups.push({ title: "Financeiro", links: finLinks });
     }
