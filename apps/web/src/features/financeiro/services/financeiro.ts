@@ -74,6 +74,21 @@ export type CreateFinanceBillPayload = {
   instructions?: string | null;
 };
 
+export type BatchBillUnit = {
+  unit: string;
+  resident: string;
+  residentEmail?: string | null;
+  amount: number;
+};
+
+export type CreateFinanceBillBatchPayload = {
+  competenceDate: string;
+  dueDate: string;
+  issueDate?: string | null;
+  instructions?: string | null;
+  units: BatchBillUnit[];
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getCondominioUUID(): string {
@@ -259,6 +274,108 @@ export async function createFinanceBill(payload: CreateFinanceBillPayload): Prom
 
   if (billError) throw new Error(billError.message);
   return mapBill(billData as Record<string, unknown>);
+}
+
+export type BatchBillResult = {
+  created: FinanceBill[];
+  skipped: { unit: string; reason: string }[];
+};
+
+export async function createFinanceBillBatch(payload: CreateFinanceBillBatchPayload): Promise<BatchBillResult> {
+  const condominioId = getCondominioUUID();
+  const issueDate = payload.issueDate ?? new Date().toISOString().slice(0, 10);
+  const competencePrefix = payload.competenceDate.slice(0, 7).replace("-", "");
+
+  // Count existing bills for this competence to start the sequential seed
+  const { count: existingCount } = await supabase
+    .from("finance_bills")
+    .select("*", { count: "exact", head: true })
+    .eq("condominio_id", condominioId)
+    .like("bill_code", `BOL-${competencePrefix}%`);
+
+  // Check which units already have a bill for this competence (to skip duplicates)
+  const { data: existingBills } = await supabase
+    .from("finance_bills")
+    .select("unit")
+    .eq("condominio_id", condominioId)
+    .like("bill_code", `BOL-${competencePrefix}%`);
+
+  const alreadyBilled = new Set((existingBills ?? []).map((b: { unit: string }) => b.unit));
+
+  const created: FinanceBill[] = [];
+  const skipped: { unit: string; reason: string }[] = [];
+  let seed = (existingCount ?? 0) + 1;
+
+  for (const unitPayload of payload.units) {
+    if (alreadyBilled.has(unitPayload.unit)) {
+      skipped.push({ unit: unitPayload.unit, reason: "Já possui boleto nesta competência" });
+      continue;
+    }
+
+    const billCode = buildBillCode(seed, payload.competenceDate);
+    const entryIdentifier = buildEntryIdentifier(seed, payload.competenceDate);
+
+    const { data: entryData, error: entryError } = await supabase
+      .from("finance_entries")
+      .insert({
+        condominio_id: condominioId,
+        type: "REVENUE",
+        identifier: entryIdentifier,
+        description: `Taxa condominial ${formatCompetence(payload.competenceDate)} - ${unitPayload.unit}`,
+        amount: unitPayload.amount,
+        reference_date: issueDate,
+        due_date: payload.dueDate,
+        counterparty: unitPayload.resident,
+        unit: unitPayload.unit,
+        resident: unitPayload.resident,
+        category: "Taxa condominial",
+        payment_method: "Boleto",
+        status: "Em aberto",
+        document_name: `${billCode}.pdf`,
+        notes: payload.instructions ?? null,
+      })
+      .select()
+      .single();
+
+    if (entryError) {
+      skipped.push({ unit: unitPayload.unit, reason: entryError.message });
+      continue;
+    }
+
+    const { data: billData, error: billError } = await supabase
+      .from("finance_bills")
+      .insert({
+        condominio_id: condominioId,
+        entry_id: (entryData as { id: string }).id,
+        bill_code: billCode,
+        unit: unitPayload.unit,
+        resident: unitPayload.resident,
+        resident_email: unitPayload.residentEmail ?? null,
+        competence_date: payload.competenceDate,
+        issue_date: issueDate,
+        due_date: payload.dueDate,
+        amount: unitPayload.amount,
+        instructions: payload.instructions ?? null,
+        status: "PENDING",
+        digitable_line: null,
+        barcode: null,
+        pdf_url: null,
+        paid_at: null,
+      })
+      .select()
+      .single();
+
+    if (billError) {
+      skipped.push({ unit: unitPayload.unit, reason: billError.message });
+      seed++;
+      continue;
+    }
+
+    created.push(mapBill(billData as Record<string, unknown>));
+    seed++;
+  }
+
+  return { created, skipped };
 }
 
 export async function updateFinanceBillStatus(

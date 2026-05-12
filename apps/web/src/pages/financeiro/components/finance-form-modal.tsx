@@ -1,4 +1,5 @@
-import { PlusCircle, Receipt, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Layers, PlusCircle, Receipt, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import type {
   RevenueCategory,
   ExpenseCategory,
@@ -7,7 +8,7 @@ import type {
 } from "../utils/finance-calc";
 import { revenueCategories, expenseCategories } from "../utils/finance-calc";
 
-type FinanceModal = "revenue" | "expense" | "bill" | null;
+type FinanceModal = "revenue" | "expense" | "bill" | "batch" | null;
 
 export type RevenueForm = {
   identifier: string; description: string; amount: string; referenceDate: string;
@@ -26,6 +27,16 @@ export type BillForm = {
   competenceDate: string; issueDate: string; dueDate: string; instructions: string;
 };
 
+export type BatchForm = {
+  competenceDate: string;
+  issueDate: string;
+  dueDate: string;
+  defaultAmount: string;
+  instructions: string;
+  /** Per-unit overrides: unit value → amount string */
+  unitAmounts: Record<string, string>;
+};
+
 const inputClass =
   "h-11 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100";
 const fieldLabelClass = "grid gap-2 text-sm font-medium text-slate-700";
@@ -40,12 +51,16 @@ type Props = {
   setExpenseForm: React.Dispatch<React.SetStateAction<ExpenseForm>>;
   billForm: BillForm;
   setBillForm: React.Dispatch<React.SetStateAction<BillForm>>;
+  batchForm: BatchForm;
+  setBatchForm: React.Dispatch<React.SetStateAction<BatchForm>>;
   unitOptions: UnitOption[];
   savingRevenue: boolean;
+  savingBatch: boolean;
   onClose: () => void;
   onCreateRevenue: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
   onCreateExpense: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
   onIssueBill: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
+  onIssueBatch: (e: React.FormEvent<HTMLFormElement>) => Promise<void>;
 };
 
 export function FinanceFormModal({
@@ -53,9 +68,16 @@ export function FinanceFormModal({
   revenueForm, setRevenueForm, revenueErrors,
   expenseForm, setExpenseForm,
   billForm, setBillForm,
-  unitOptions, savingRevenue,
-  onClose, onCreateRevenue, onCreateExpense, onIssueBill,
+  batchForm, setBatchForm,
+  unitOptions, savingRevenue, savingBatch,
+  onClose, onCreateRevenue, onCreateExpense, onIssueBill, onIssueBatch,
 }: Props) {
+  const [batchStep, setBatchStep] = useState<"config" | "preview">("config");
+
+  useEffect(() => {
+    if (activeModal === "batch") setBatchStep("config");
+  }, [activeModal]);
+
   if (!activeModal) return null;
 
   return (
@@ -65,12 +87,14 @@ export function FinanceFormModal({
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Financeiro</p>
             <h3 className="mt-1 text-xl font-semibold text-slate-900">
-              {activeModal === "revenue" ? "Cadastrar receita" : activeModal === "expense" ? "Cadastrar despesa" : "Emitir boleto mockado"}
+              {activeModal === "revenue" ? "Cadastrar receita" : activeModal === "expense" ? "Cadastrar despesa" : activeModal === "batch" ? "Emissão em lote" : "Emitir boleto"}
             </h3>
             <p className="mt-1 text-sm text-slate-500">
               {activeModal === "bill"
-                ? "Gere a cobranca condominial com linha digitavel e segunda via interna."
-                : "Preencha os dados da movimentacao financeira."}
+                ? "Gere a cobrança condominial individual."
+                : activeModal === "batch"
+                ? "Emita boletos para todas as unidades de uma vez."
+                : "Preencha os dados da movimentação financeira."}
             </p>
           </div>
           <button
@@ -277,6 +301,118 @@ export function FinanceFormModal({
                   Salvar despesa
                 </button>
               </div>
+            </form>
+          )}
+
+          {activeModal === "batch" && (
+            <form onSubmit={(e) => void onIssueBatch(e)} className="grid gap-4">
+              {batchStep === "config" && (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <label className={fieldLabelClass}>
+                      <span>Competência</span>
+                      <input type="date" value={batchForm.competenceDate} onChange={(e) => setBatchForm((c) => ({ ...c, competenceDate: e.target.value }))} className={inputClass} required />
+                    </label>
+                    <label className={fieldLabelClass}>
+                      <span>Emissão</span>
+                      <input type="date" value={batchForm.issueDate} onChange={(e) => setBatchForm((c) => ({ ...c, issueDate: e.target.value }))} className={inputClass} required />
+                    </label>
+                    <label className={fieldLabelClass}>
+                      <span>Vencimento</span>
+                      <input type="date" value={batchForm.dueDate} onChange={(e) => setBatchForm((c) => ({ ...c, dueDate: e.target.value }))} className={inputClass} required />
+                    </label>
+                  </div>
+
+                  <label className={fieldLabelClass}>
+                    <span>Valor padrão (R$)</span>
+                    <input type="number" min={0} step="0.01" value={batchForm.defaultAmount} onChange={(e) => setBatchForm((c) => ({ ...c, defaultAmount: e.target.value }))} placeholder="Ex.: 780,00" className={inputClass} required />
+                  </label>
+
+                  <label className={fieldLabelClass}>
+                    <span>Instruções (opcional)</span>
+                    <textarea
+                      value={batchForm.instructions}
+                      onChange={(e) => setBatchForm((c) => ({ ...c, instructions: e.target.value }))}
+                      placeholder="Ex.: Não receber após 30 dias do vencimento."
+                      rows={3}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100"
+                    />
+                  </label>
+
+                  <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+                    <button type="button" onClick={onClose} className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBatchStep("preview")}
+                      disabled={!batchForm.defaultAmount || !batchForm.dueDate || !batchForm.competenceDate}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      <Layers size={16} />
+                      Pré-visualizar lote ({unitOptions.length} unidades)
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {batchStep === "preview" && (
+                <>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    <span className="font-semibold">{unitOptions.length} boletos</span> serão gerados para a competência <span className="font-semibold">{batchForm.competenceDate.slice(0, 7)}</span>, vencimento <span className="font-semibold">{batchForm.dueDate}</span>.
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-slate-50">
+                        <tr className="border-b border-slate-200">
+                          <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Unidade</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Morador</th>
+                          <th className="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">Valor</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {unitOptions.map((option) => (
+                          <tr key={option.value} className="group">
+                            <td className="px-4 py-2.5 font-medium text-slate-800">{option.label}</td>
+                            <td className="px-4 py-2.5 text-slate-500">{option.resident || <span className="italic text-slate-400">Sem morador</span>}</td>
+                            <td className="px-4 py-2.5 text-right">
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={batchForm.unitAmounts[option.value] ?? batchForm.defaultAmount}
+                                onChange={(e) => setBatchForm((c) => ({ ...c, unitAmounts: { ...c.unitAmounts, [option.value]: e.target.value } }))}
+                                className="w-28 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-right text-sm text-slate-700 outline-none focus:border-emerald-400"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
+                    <button type="button" onClick={() => setBatchStep("config")} className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                      Voltar
+                    </button>
+                    <button type="submit" disabled={savingBatch} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60">
+                      {savingBatch ? (
+                        <><CheckCircle2 size={16} /> Emitindo...</>
+                      ) : (
+                        <><Receipt size={16} /> Emitir {unitOptions.length} boletos</>
+                      )}
+                    </button>
+                  </div>
+
+                  {formError && (
+                    <div className="flex items-start gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                      <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                      {formError}
+                    </div>
+                  )}
+                </>
+              )}
             </form>
           )}
 

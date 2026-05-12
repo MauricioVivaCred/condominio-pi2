@@ -7,6 +7,7 @@ import {
   Copy,
   FileBarChart2,
   Landmark,
+  Layers,
   PlusCircle,
   Printer,
   Receipt,
@@ -29,6 +30,7 @@ import { getUser } from "../../features/auth/services/auth";
 import AppLayout from "../../features/layout/components/app-layout";
 import {
   createFinanceBill,
+  createFinanceBillBatch,
   createFinanceEntry,
   listFinanceBills,
   listFinanceEntries,
@@ -61,10 +63,10 @@ import {
 } from "./utils/finance-calc";
 import { openBillPrintView } from "./utils/finance-print";
 import { FinanceTooltip } from "./components/finance-tooltip";
-import { FinanceFormModal, type RevenueForm, type ExpenseForm, type BillForm } from "./components/finance-form-modal";
+import { FinanceFormModal, type RevenueForm, type ExpenseForm, type BillForm, type BatchForm } from "./components/finance-form-modal";
 import { ResidentFinanceView } from "./components/resident-finance-view";
 
-type FinanceModal = "revenue" | "expense" | "bill" | null;
+type FinanceModal = "revenue" | "expense" | "bill" | "batch" | null;
 
 const panelClass =
   "rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur";
@@ -150,6 +152,7 @@ export default function FinanceiroPage() {
   const [savingRevenue, setSavingRevenue] = useState(false);
   const [, setSavingExpense] = useState(false);
   const [, setSavingBill] = useState(false);
+  const [savingBatch, setSavingBatch] = useState(false);
   const [activeModal, setActiveModal] = useState<FinanceModal>(null);
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
   const [updatingBillId, setUpdatingBillId] = useState<string | null>(null);
@@ -158,6 +161,15 @@ export default function FinanceiroPage() {
   const today = new Date().toISOString().slice(0, 10);
   const firstOfMonth = today.slice(0, 8) + "01";
   const tenthOfMonth = today.slice(0, 8) + "10";
+
+  const defaultBatchForm: BatchForm = {
+    competenceDate: firstOfMonth,
+    issueDate: today,
+    dueDate: tenthOfMonth,
+    defaultAmount: "",
+    instructions: "",
+    unitAmounts: {},
+  };
 
   const [revenueForm, setRevenueForm] = useState<RevenueForm>({
     identifier: "", description: "", amount: "", referenceDate: today,
@@ -173,6 +185,7 @@ export default function FinanceiroPage() {
     unit: "", resident: "", residentEmail: "", amount: "",
     competenceDate: firstOfMonth, issueDate: firstOfMonth, dueDate: tenthOfMonth, instructions: "",
   });
+  const [batchForm, setBatchForm] = useState<BatchForm>(defaultBatchForm);
 
   async function loadData() {
     setLoading(true);
@@ -616,6 +629,47 @@ export default function FinanceiroPage() {
     }
   }
 
+  async function handleIssueBatch(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setFormError("");
+
+    const units = unitOptions
+      .filter((opt) => opt.resident)
+      .map((opt) => ({
+        unit: opt.value,
+        resident: opt.resident,
+        residentEmail: opt.email || null,
+        amount: Number(batchForm.unitAmounts[opt.value] ?? batchForm.defaultAmount),
+      }))
+      .filter((u) => u.amount > 0);
+
+    if (units.length === 0) {
+      setFormError("Nenhuma unidade com morador e valor válido encontrada.");
+      return;
+    }
+
+    try {
+      setSavingBatch(true);
+      const result = await createFinanceBillBatch({
+        competenceDate: batchForm.competenceDate,
+        dueDate: batchForm.dueDate,
+        issueDate: batchForm.issueDate,
+        instructions: batchForm.instructions || null,
+        units,
+      });
+
+      setBatchForm(defaultBatchForm);
+      setActiveModal(null);
+      const skippedMsg = result.skipped.length > 0 ? ` (${result.skipped.length} já existiam)` : "";
+      setActionMessage(`${result.created.length} boleto${result.created.length !== 1 ? "s" : ""} emitido${result.created.length !== 1 ? "s" : ""} com sucesso${skippedMsg}.`);
+      await loadData();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Erro ao emitir boletos em lote.");
+    } finally {
+      setSavingBatch(false);
+    }
+  }
+
   async function handleBillStatusChange(bill: FinanceBill, status: FinanceBillStatus) {
     setUpdatingBillId(bill.id);
     setActionMessage("");
@@ -672,6 +726,18 @@ export default function FinanceiroPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setFormError("");
+                  setBatchForm(defaultBatchForm);
+                  setActiveModal("batch");
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-900 bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+              >
+                <Layers size={16} />
+                Emitir em lote
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -1045,12 +1111,16 @@ export default function FinanceiroPage() {
         setExpenseForm={setExpenseForm}
         billForm={billForm}
         setBillForm={setBillForm}
+        batchForm={batchForm}
+        setBatchForm={setBatchForm}
         unitOptions={unitOptions}
         savingRevenue={savingRevenue}
+        savingBatch={savingBatch}
         onClose={() => setActiveModal(null)}
         onCreateRevenue={handleCreateRevenue}
         onCreateExpense={handleCreateExpense}
         onIssueBill={handleIssueBill}
+        onIssueBatch={handleIssueBatch}
       />
     </AppLayout>
   );
