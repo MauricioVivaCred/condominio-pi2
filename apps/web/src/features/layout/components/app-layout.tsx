@@ -55,6 +55,7 @@ const GROUP_COLORS: Record<string, string> = {
   "Áreas Comuns": "bg-emerald-50 text-emerald-600",
   "Operações":    "bg-orange-50 text-orange-500",
   "Gestão":       "bg-indigo-50 text-indigo-600",
+  "Financeiro":   "bg-teal-50   text-teal-600",
   "Admin":        "bg-rose-50   text-rose-500",
 };
 
@@ -96,23 +97,22 @@ function buildGroups(role: string | undefined, plan: PlanId): NavGroup[] {
   groups.push({ title: "Operações", links: operacoesLinks });
 
   if (role === "ADMIN" || role === "MASTER_ADMIN") {
-    const gestaoLinks: NavItem[] = [
+    const gestaoLinks: NavLink[] = [
       { label: "Edifício", path: "/predio", icon: Building2 },
       { label: "Moradores", path: "/usuarios", icon: Users },
     ];
-    if (hasFeature(plan, "financeiro")) {
-      const finChildren: NavLink[] = [
-        { label: "Geral", path: "/financeiro", icon: CircleDollarSign },
-      ];
-      if (role === "ADMIN" || role === "MASTER_ADMIN") {
-        finChildren.push({ label: "Contas", path: "/financeiro/contas", icon: Wallet });
-      }
-      gestaoLinks.push({ label: "Financeiro", icon: CircleDollarSign, children: finChildren });
-    }
     if (hasFeature(plan, "relatoriosFinanceiros")) {
       gestaoLinks.push({ label: "Relatórios", path: "/relatorios", icon: BarChart2 });
     }
     groups.push({ title: "Gestão", links: gestaoLinks });
+
+    if (hasFeature(plan, "financeiro")) {
+      const finLinks: NavLink[] = [
+        { label: "Geral", path: "/financeiro", icon: CircleDollarSign },
+        { label: "Contas", path: "/financeiro/contas", icon: Wallet },
+      ];
+      groups.push({ title: "Financeiro", links: finLinks });
+    }
   }
 
   if (role === "MASTER_ADMIN") {
