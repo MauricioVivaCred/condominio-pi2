@@ -485,6 +485,9 @@ async function applyMockAssignments(floors: Floor[]): Promise<Floor[]> {
       const assignment = assignments[apartment.id];
       if (assignment === undefined) return apartment;
 
+      // Skip mock assignment if Supabase already has real residents
+      if (apartment.residents.length > 0) return apartment;
+
       const resolved = assignment.userId
         ? (byId.get(assignment.userId) ?? assignment.resident ?? apartment.resident)
         : null;
