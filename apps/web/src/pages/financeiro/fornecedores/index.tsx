@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Building2, Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Building2, Loader2, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import AppLayout from "../../../features/layout/components/app-layout";
 import {
   createFornecedor,
@@ -27,12 +27,28 @@ const EMPTY_FORM: CreateFornecedorPayload = {
 
 type ModalMode = "create" | "edit" | null;
 
+function maskCnpj(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 14);
+  if (d.length <= 2) return d;
+  if (d.length <= 5) return `${d.slice(0,2)}.${d.slice(2)}`;
+  if (d.length <= 8) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5)}`;
+  if (d.length <= 12) return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8)}`;
+  return `${d.slice(0,2)}.${d.slice(2,5)}.${d.slice(5,8)}/${d.slice(8,12)}-${d.slice(12)}`;
+}
+
+function maskPhone(v: string): string {
+  const d = v.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d.length ? `(${d}` : "";
+  if (d.length <= 6) return `(${d.slice(0,2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0,2)}) ${d.slice(2,6)}-${d.slice(6)}`;
+  return `(${d.slice(0,2)}) ${d.slice(2,7)}-${d.slice(7)}`;
+}
+
 export default function FornecedoresPage() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [showInativos, setShowInativos] = useState(false);
 
   const [modalMode, setModalMode] = useState<ModalMode>(null);
   const [editing, setEditing] = useState<Fornecedor | null>(null);
@@ -45,6 +61,10 @@ export default function FornecedoresPage() {
   const [histLoading, setHistLoading] = useState(false);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterCategoria, setFilterCategoria] = useState("");
+  const [filterStatus, setFilterStatus] = useState<"" | "ativo" | "inativo">("");
 
   async function load() {
     setLoading(true);
@@ -141,8 +161,13 @@ export default function FornecedoresPage() {
     }
   }
 
+  const activeFilterCount = [filterCategoria, filterStatus].filter(Boolean).length;
+
   const filtered = fornecedores.filter((f) => {
-    if (!showInativos && !f.ativo) return false;
+    if (filterStatus === "ativo" && !f.ativo) return false;
+    if (filterStatus === "inativo" && f.ativo) return false;
+    if (!filterStatus && !f.ativo) return false;
+    if (filterCategoria && f.categoria !== filterCategoria) return false;
     if (search && !f.nome.toLowerCase().includes(search.toLowerCase()) && !(f.cnpj ?? "").includes(search)) return false;
     return true;
   });
@@ -151,7 +176,7 @@ export default function FornecedoresPage() {
 
   return (
     <AppLayout title="Fornecedores">
-      <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
+      <div className="w-full space-y-6 px-4 py-8">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -183,10 +208,19 @@ export default function FornecedoresPage() {
               className="h-10 w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-4 text-sm text-slate-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
             />
           </div>
-          <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-            <input type="checkbox" checked={showInativos} onChange={(e) => setShowInativos(e.target.checked)} className="accent-indigo-600" />
-            Mostrar inativos
-          </label>
+          <button
+            type="button"
+            onClick={() => setFilterOpen(true)}
+            className={`relative inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-semibold transition ${activeFilterCount > 0 ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+          >
+            <SlidersHorizontal size={15} />
+            Filtros
+            {activeFilterCount > 0 && (
+              <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-bold text-white">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Table */}
@@ -303,7 +337,7 @@ export default function FornecedoresPage() {
                 </label>
                 <label className={labelCls}>
                   <span>CNPJ</span>
-                  <input value={form.cnpj ?? ""} onChange={(e) => setForm((c) => ({ ...c, cnpj: e.target.value }))} placeholder="00.000.000/0001-00" className={inputCls} />
+                  <input value={form.cnpj ?? ""} onChange={(e) => setForm((c) => ({ ...c, cnpj: maskCnpj(e.target.value) }))} placeholder="00.000.000/0001-00" className={inputCls} />
                 </label>
               </div>
 
@@ -317,7 +351,7 @@ export default function FornecedoresPage() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <label className={labelCls}>
                   <span>Telefone</span>
-                  <input value={form.telefone ?? ""} onChange={(e) => setForm((c) => ({ ...c, telefone: e.target.value }))} placeholder="(11) 99999-9999" className={inputCls} />
+                  <input value={form.telefone ?? ""} onChange={(e) => setForm((c) => ({ ...c, telefone: maskPhone(e.target.value) }))} placeholder="(11) 99999-9999" className={inputCls} />
                 </label>
                 <label className={labelCls}>
                   <span>Email</span>
@@ -348,6 +382,60 @@ export default function FornecedoresPage() {
           </div>
         </div>
       )}
+
+      {/* Filter Panel */}
+      {filterOpen && <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setFilterOpen(false)} />}
+      <div className={`fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-50 flex flex-col transition-transform duration-300 ease-in-out ${filterOpen ? "translate-x-0" : "translate-x-full"}`}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <span className="text-sm font-semibold text-slate-800">Filtros</span>
+          <button onClick={() => setFilterOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 transition"><X size={16} /></button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Categoria</p>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="filterCat" checked={filterCategoria === ""} onChange={() => setFilterCategoria("")} className="accent-indigo-600" />
+                <span className="text-sm text-slate-700">Todas</span>
+              </label>
+              {expenseCategories.map((cat) => (
+                <label key={cat} className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="filterCat" checked={filterCategoria === cat} onChange={() => setFilterCategoria(cat)} className="accent-indigo-600" />
+                  <span className="text-sm text-slate-700">{cat}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Status</p>
+            <div className="space-y-1.5">
+              {([["", "Todos"], ["ativo", "Ativos"], ["inativo", "Inativos"]] as const).map(([val, label]) => (
+                <label key={val} className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" name="filterStatus" checked={filterStatus === val} onChange={() => setFilterStatus(val)} className="accent-indigo-600" />
+                  <span className="text-sm text-slate-700">{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 py-4 border-t border-slate-100 flex gap-2">
+          <button
+            onClick={() => { setFilterCategoria(""); setFilterStatus(""); }}
+            className="flex-1 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition"
+          >
+            Limpar
+          </button>
+          <button
+            onClick={() => setFilterOpen(false)}
+            className="flex-1 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition"
+          >
+            Aplicar
+          </button>
+        </div>
+      </div>
 
       {/* History Drawer */}
       {histFornecedor && (

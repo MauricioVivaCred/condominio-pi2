@@ -131,7 +131,7 @@ export default function BalancetePage() {
 
   return (
     <AppLayout title="Balancete">
-      <div className="mx-auto max-w-5xl space-y-6 px-4 py-8 print:px-0 print:py-0 print:space-y-4">
+      <div className="w-full space-y-6 px-4 py-8 print:px-0 print:py-0 print:space-y-4">
 
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-4 print:hidden">
