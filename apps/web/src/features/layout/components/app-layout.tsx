@@ -249,6 +249,11 @@ export default function AppLayout({ title, children }: { title: string; children
         {condName && !collapsed && (
           <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 text-center">
             <p className="wrap-break-word text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600 leading-snug">{condName}</p>
+            {condPlan && (
+              <span className="mt-1 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-400 uppercase tracking-wide">
+                {condPlan}
+              </span>
+            )}
           </div>
         )}
 
@@ -300,7 +305,7 @@ export default function AppLayout({ title, children }: { title: string; children
                             return (
                               <button
                                 key={child.path}
-                                onClick={() => { nav(child.path); setSidebarOpen(false); }}
+                                onClick={() => { nav(child.path, { preventScrollReset: true }); setSidebarOpen(false); }}
                                 className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-xl border-none text-sm font-medium transition-colors ${
                                   childActive ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"
                                 }`}
@@ -322,7 +327,7 @@ export default function AppLayout({ title, children }: { title: string; children
                   <button
                     key={path}
                     onClick={() => {
-                      nav(path);
+                      nav(path, { preventScrollReset: true });
                       setSidebarOpen(false);
                     }}
                     title={collapsed ? label : undefined}

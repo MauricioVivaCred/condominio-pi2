@@ -1,12 +1,11 @@
 export type Role = "ADMIN" | "MORADOR" | "PORTEIRO";
 export type ResidentType = "PROPRIETARIO" | "INQUILINO" | "VISITANTE";
 export type UserStatus = "ATIVO" | "INATIVO";
-export type SortKey = "name" | "email" | "role" | "status" | "created_at";
+export type SortKey = "name" | "email" | "role" | "created_at";
 
 export type FilterDraft = {
   roles: Role[];
   tipos: ResidentType[];
-  status: UserStatus | "";
   habilitado: "" | "sim" | "nao";
   condominioId: string;
   sortKey: SortKey;

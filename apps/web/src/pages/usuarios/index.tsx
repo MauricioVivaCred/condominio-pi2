@@ -17,9 +17,9 @@ import { SortTh } from "../../components/ui/sort-th";
 import { Pagination } from "../../components/ui/pagination";
 import {
   formatPhone, isCarPlateValid, isPhoneValid, normalizeCarPlate,
-  RESIDENT_TYPE_LABEL, USER_STATUS_LABEL,
+  RESIDENT_TYPE_LABEL,
 } from "../../features/dashboard/utils/user-form";
-import { type Role, type ResidentType, type UserStatus, type SortKey, type FilterDraft } from "./types";
+import { type Role, type ResidentType, type SortKey, type FilterDraft } from "./types";
 import { FilterPanel } from "./components/filter-panel";
 import { InviteModal } from "./components/invite-modal";
 import { EditUserModal } from "./components/edit-user-modal";
@@ -42,7 +42,6 @@ export default function UsuariosPage() {
   const searchText = searchParams.get("q") ?? "";
   const filterRoles = (searchParams.get("role") ?? "").split(",").filter(Boolean) as Role[];
   const filterTipos = (searchParams.get("tipo") ?? "").split(",").filter(Boolean) as ResidentType[];
-  const filterStatus = (searchParams.get("status") ?? "") as UserStatus | "";
   const filterHabilitado = (searchParams.get("habilitado") ?? "") as "" | "sim" | "nao";
   const filterCondominioId = searchParams.get("cond") ?? "";
   const sortKey = (searchParams.get("sort") ?? "created_at") as SortKey;
@@ -142,7 +141,6 @@ export default function UsuariosPage() {
       const next = new URLSearchParams(prev);
       if (f.roles.length) next.set("role", f.roles.join(",")); else next.delete("role");
       if (f.tipos.length) next.set("tipo", f.tipos.join(",")); else next.delete("tipo");
-      if (f.status) next.set("status", f.status); else next.delete("status");
       if (f.habilitado) next.set("habilitado", f.habilitado); else next.delete("habilitado");
       if (f.condominioId) next.set("cond", f.condominioId); else next.delete("cond");
       if (f.sortKey !== "created_at") next.set("sort", f.sortKey); else next.delete("sort");
@@ -161,12 +159,11 @@ export default function UsuariosPage() {
         !u.apartments.some((a) => a.number.toLowerCase().includes(q) || a.tower.toLowerCase().includes(q))) return false;
       if (filterRoles.length && !filterRoles.includes(u.role)) return false;
       if (filterTipos.length && !filterTipos.includes(u.resident_type)) return false;
-      if (filterStatus && u.status !== filterStatus) return false;
       if (filterHabilitado === "sim" && u.removed) return false;
       if (filterHabilitado === "nao" && !u.removed) return false;
       return true;
     });
-  }, [users, searchText, filterRoles, filterTipos, filterStatus, filterHabilitado]);
+  }, [users, searchText, filterRoles, filterTipos, filterHabilitado]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -174,7 +171,6 @@ export default function UsuariosPage() {
       if (sortKey === "name") cmp = a.name.localeCompare(b.name);
       else if (sortKey === "email") cmp = a.email.localeCompare(b.email);
       else if (sortKey === "role") cmp = a.role.localeCompare(b.role);
-      else if (sortKey === "status") cmp = a.status.localeCompare(b.status);
       else cmp = a.created_at.localeCompare(b.created_at);
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -186,7 +182,7 @@ export default function UsuariosPage() {
   const pageItems = sorted.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   const activeFilterCount = (filterRoles.length ? 1 : 0) + (filterTipos.length ? 1 : 0)
-    + [filterStatus, filterHabilitado, filterCondominioId].filter(Boolean).length
+    + [filterHabilitado, filterCondominioId].filter(Boolean).length
     + (sortKey !== "created_at" || sortDir !== "desc" ? 1 : 0);
 
   // ── Limites do plano ───────────────────────────────────────────────────────
@@ -321,7 +317,7 @@ export default function UsuariosPage() {
   );
 
   const filterDraft: FilterDraft = {
-    roles: filterRoles, tipos: filterTipos, status: filterStatus,
+    roles: filterRoles, tipos: filterTipos,
     habilitado: filterHabilitado, condominioId: filterCondominioId,
     sortKey, sortDir,
   };
@@ -409,7 +405,6 @@ export default function UsuariosPage() {
                     <SortTh col="name" label="Nome" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                     <SortTh col="role" label="Perfil" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                     {!isResident && <th className="px-3 py-3 border-b border-gray-100 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase whitespace-nowrap">Tipo</th>}
-                    {!isResident && <SortTh col="status" label="Status" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
                     {!isResident && <th className="px-3 py-3 border-b border-gray-100 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase whitespace-nowrap">Habilitado</th>}
                     <th className="px-3 py-3 border-b border-gray-100 text-left text-xs font-semibold tracking-wider text-gray-500 uppercase whitespace-nowrap">Unidade</th>
                     {!isResident && <SortTh col="created_at" label="Cadastro" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />}
@@ -430,13 +425,6 @@ export default function UsuariosPage() {
                         </span>
                       </td>
                       {!isResident && <td className="px-3 py-3 border-b border-gray-100 text-gray-500 text-sm">{RESIDENT_TYPE_LABEL[u.resident_type]}</td>}
-                      {!isResident && (
-                        <td className="px-3 py-3 border-b border-gray-100">
-                          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${u.status === "ATIVO" ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
-                            {USER_STATUS_LABEL[u.status]}
-                          </span>
-                        </td>
-                      )}
                       {!isResident && (
                         <td className="px-3 py-3 border-b border-gray-100">
                           {u.removed
@@ -501,11 +489,6 @@ export default function UsuariosPage() {
                   <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${u.role === "ADMIN" ? "border-indigo-200 bg-indigo-50 text-indigo-600" : u.role === "PORTEIRO" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
                     {u.role === "ADMIN" ? "Admin" : u.role === "PORTEIRO" ? "Porteiro" : "Morador"}
                   </span>
-                  {!isResident && (
-                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${u.status === "ATIVO" ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
-                      {USER_STATUS_LABEL[u.status]}
-                    </span>
-                  )}
                 </div>
                 {u.apartments.length > 0 && (
                   <p className="text-xs text-gray-500 mb-3">{u.apartments.map((a) => `${a.tower} · Apto ${a.number}`).join(", ")}</p>

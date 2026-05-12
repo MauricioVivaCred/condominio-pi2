@@ -20,7 +20,6 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: "name", label: "Nome" },
   { key: "email", label: "Email" },
   { key: "role", label: "Perfil" },
-  { key: "status", label: "Status" },
 ];
 
 export function FilterPanel({ open, onClose, initial, onApply, condominios, isMasterAdmin }: Props) {
@@ -36,7 +35,7 @@ export function FilterPanel({ open, onClose, initial, onApply, condominios, isMa
 
   function apply() { onApply(draft); onClose(); }
   function clear() {
-    setDraft({ roles: [], tipos: [], status: "", habilitado: "", condominioId: "", sortKey: "created_at", sortDir: "desc" });
+    setDraft({ roles: [], tipos: [], habilitado: "", condominioId: "", sortKey: "created_at", sortDir: "desc" });
   }
 
   function toggleRole(r: Role) {
@@ -89,18 +88,6 @@ export function FilterPanel({ open, onClose, initial, onApply, condominios, isMa
                 <label key={t} className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" checked={draft.tipos.includes(t)} onChange={() => toggleTipo(t)} className="accent-indigo-600 w-4 h-4" />
                   <span className="text-sm text-gray-700">{RESIDENT_TYPE_LABEL[t]}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Status</p>
-            <div className="space-y-1.5">
-              {([["", "Todos"], ["ATIVO", "Ativo"], ["INATIVO", "Inativo"]] as const).map(([val, label]) => (
-                <label key={val} className="flex items-center gap-2 cursor-pointer">
-                  <input type="radio" name="status" checked={draft.status === val} onChange={() => setDraft((d) => ({ ...d, status: val }))} className="accent-indigo-600" />
-                  <span className="text-sm text-gray-700">{label}</span>
                 </label>
               ))}
             </div>
