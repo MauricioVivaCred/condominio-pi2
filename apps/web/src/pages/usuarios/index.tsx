@@ -425,14 +425,14 @@ export default function UsuariosPage() {
                         {!isResident && <p className="text-xs text-gray-400 mt-0.5">{u.email}</p>}
                       </td>
                       <td className="px-3 py-3 border-b border-gray-100">
-                        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${u.role === "ADMIN" ? "border-indigo-200 bg-indigo-50 text-indigo-600" : u.role === "PORTEIRO" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
+                        <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${u.role === "ADMIN" ? "border-indigo-200 bg-indigo-50 text-indigo-600" : u.role === "PORTEIRO" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
                           {u.role === "ADMIN" ? "Administrador" : u.role === "PORTEIRO" ? "Porteiro" : "Morador"}
                         </span>
                       </td>
                       {!isResident && <td className="px-3 py-3 border-b border-gray-100 text-gray-500 text-sm">{RESIDENT_TYPE_LABEL[u.resident_type]}</td>}
                       {!isResident && (
                         <td className="px-3 py-3 border-b border-gray-100">
-                          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${u.status === "ATIVO" ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
+                          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${u.status === "ATIVO" ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
                             {USER_STATUS_LABEL[u.status]}
                           </span>
                         </td>
@@ -440,8 +440,8 @@ export default function UsuariosPage() {
                       {!isResident && (
                         <td className="px-3 py-3 border-b border-gray-100">
                           {u.removed
-                            ? <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600"><ShieldOff size={10} /> Não</span>
-                            : <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600"><ShieldCheck size={10} /> Sim</span>
+                            ? <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold uppercase text-rose-600"><ShieldOff size={10} /> Não</span>
+                            : <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase text-emerald-600"><ShieldCheck size={10} /> Sim</span>
                           }
                         </td>
                       )}
@@ -493,16 +493,16 @@ export default function UsuariosPage() {
                     {!isResident && <p className="text-xs text-gray-400">{u.email}</p>}
                   </div>
                   {!isResident && (u.removed
-                    ? <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600 shrink-0"><ShieldOff size={10} /> Desabilitado</span>
-                    : <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 shrink-0"><ShieldCheck size={10} /> Habilitado</span>
+                    ? <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-semibold uppercase text-rose-600 shrink-0"><ShieldOff size={10} /> Desabilitado</span>
+                    : <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase text-emerald-600 shrink-0"><ShieldCheck size={10} /> Habilitado</span>
                   )}
                 </div>
                 <div className="flex flex-wrap gap-1.5 mb-3">
-                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${u.role === "ADMIN" ? "border-indigo-200 bg-indigo-50 text-indigo-600" : u.role === "PORTEIRO" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
+                  <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${u.role === "ADMIN" ? "border-indigo-200 bg-indigo-50 text-indigo-600" : u.role === "PORTEIRO" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
                     {u.role === "ADMIN" ? "Admin" : u.role === "PORTEIRO" ? "Porteiro" : "Morador"}
                   </span>
                   {!isResident && (
-                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${u.status === "ATIVO" ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
+                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold uppercase ${u.status === "ATIVO" ? "border-emerald-200 bg-emerald-50 text-emerald-600" : "border-gray-200 bg-gray-100 text-gray-600"}`}>
                       {USER_STATUS_LABEL[u.status]}
                     </span>
                   )}
