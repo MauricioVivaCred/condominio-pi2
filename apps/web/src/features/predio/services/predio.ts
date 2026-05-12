@@ -420,6 +420,7 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
         .select("id, name, email, phone, car_plate, pets_count, resident_type, status")
         .in("id", userIds);
 
+      console.log("[predio] profiles fetched:", profilesRes.data?.length ?? 0, "error:", profilesRes.error?.message);
       const profileMap = new Map<string, ProfileRow>(
         ((profilesRes.data ?? []) as ProfileRow[]).map((p) => [p.id, p]),
       );
