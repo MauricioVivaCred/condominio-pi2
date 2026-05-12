@@ -159,7 +159,7 @@ async function listProfiles(client: SupabaseClient): Promise<UserRecord[]> {
   const assignments = await listApartmentAssignments(client);
   const extended = await client
     .from("profiles")
-    .select("id, name, email, phone, car_plate, pets_count, role, resident_type, status, data_nascimento, created_at")
+    .select("id, name, email, phone, car_plate, pets_count, role, resident_type, status, created_at")
     .order("created_at", { ascending: false });
 
   if (!extended.error) {
@@ -182,7 +182,7 @@ async function listProfiles(client: SupabaseClient): Promise<UserRecord[]> {
 
   const fallbackWithoutPhone = await client
     .from("profiles")
-    .select("id, name, email, car_plate, pets_count, role, resident_type, status, data_nascimento, created_at")
+    .select("id, name, email, car_plate, pets_count, role, resident_type, status, created_at")
     .order("created_at", { ascending: false });
 
   if (!fallbackWithoutPhone.error) {
@@ -205,7 +205,7 @@ async function listProfiles(client: SupabaseClient): Promise<UserRecord[]> {
 
   const fallbackWithoutPhoneAndCarPlate = await client
     .from("profiles")
-    .select("id, name, email, pets_count, role, resident_type, status, data_nascimento, created_at")
+    .select("id, name, email, pets_count, role, resident_type, status, created_at")
     .order("created_at", { ascending: false });
 
   if (!fallbackWithoutPhoneAndCarPlate.error) {
@@ -228,7 +228,7 @@ async function listProfiles(client: SupabaseClient): Promise<UserRecord[]> {
 
   const fallback = await client
     .from("profiles")
-    .select("id, name, email, role, resident_type, status, data_nascimento, created_at")
+    .select("id, name, email, role, resident_type, status, created_at")
     .order("created_at", { ascending: false });
 
   if (!fallback.error) {
@@ -251,7 +251,7 @@ async function listProfiles(client: SupabaseClient): Promise<UserRecord[]> {
 
   const basic = await client
     .from("profiles")
-    .select("id, name, email, role, data_nascimento, created_at")
+    .select("id, name, email, role, created_at")
     .order("created_at", { ascending: false });
 
   if (basic.error) {
@@ -281,7 +281,7 @@ async function getProfileById(client: SupabaseClient, id: string): Promise<UserR
   const assignments = await listApartmentAssignments(client);
   const extended = await client
     .from("profiles")
-    .select("id, name, email, phone, car_plate, pets_count, role, resident_type, status, data_nascimento, created_at")
+    .select("id, name, email, phone, car_plate, pets_count, role, resident_type, status, created_at")
     .eq("id", id)
     .single();
 
@@ -303,7 +303,7 @@ async function getProfileById(client: SupabaseClient, id: string): Promise<UserR
 
   const fallbackWithoutPhone = await client
     .from("profiles")
-    .select("id, name, email, car_plate, pets_count, role, resident_type, status, data_nascimento, created_at")
+    .select("id, name, email, car_plate, pets_count, role, resident_type, status, created_at")
     .eq("id", id)
     .single();
 
@@ -325,7 +325,7 @@ async function getProfileById(client: SupabaseClient, id: string): Promise<UserR
 
   const fallbackWithoutPhoneAndCarPlate = await client
     .from("profiles")
-    .select("id, name, email, pets_count, role, resident_type, status, data_nascimento, created_at")
+    .select("id, name, email, pets_count, role, resident_type, status, created_at")
     .eq("id", id)
     .single();
 
@@ -347,7 +347,7 @@ async function getProfileById(client: SupabaseClient, id: string): Promise<UserR
 
   const fallback = await client
     .from("profiles")
-    .select("id, name, email, role, resident_type, status, data_nascimento, created_at")
+    .select("id, name, email, role, resident_type, status, created_at")
     .eq("id", id)
     .single();
 
@@ -369,7 +369,7 @@ async function getProfileById(client: SupabaseClient, id: string): Promise<UserR
 
   const basic = await client
     .from("profiles")
-    .select("id, name, email, role, data_nascimento, created_at")
+    .select("id, name, email, role, created_at")
     .eq("id", id)
     .single();
 
