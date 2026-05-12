@@ -388,10 +388,6 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
   const admin = getSupabaseAdmin();
   const condominioUUID = getUser()?.condominioUUID ?? null;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function applyCondFilter(q: any): any {
-    return condominioUUID ? q.eq("condominio_id", condominioUUID) : q;
-  }
 
   // Try with junction table: fetch apartments + residents separately to avoid FK ambiguity
   // Include apartments with condominio_id matching OR null (legacy data not yet migrated)
