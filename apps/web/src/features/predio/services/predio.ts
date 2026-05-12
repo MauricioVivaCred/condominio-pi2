@@ -391,21 +391,54 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
     return condominioUUID ? q.eq("condominio_id", condominioUUID) : q;
   }
 
-  // Try with junction table first
-  const withJunction = await applyCondFilter(
+  // Try with junction table: fetch apartments + residents separately to avoid FK ambiguity
+  const aptsResult = await applyCondFilter(
     admin
       .from("condo_apartments")
-      .select("id, tower, level, number, resident_id, apt_residents:condo_apartment_residents(user_id, profile:profiles!user_id(id, name, email, phone, car_plate, pets_count, resident_type, status))")
+      .select("id, tower, level, number, resident_id")
       .order("tower")
       .order("level", { ascending: false })
       .order("number"),
   );
 
-  if (!withJunction.error) {
-    return rowsToFloors((withJunction.data ?? []) as CondoApartmentRow[]);
+  if (!aptsResult.error) {
+    const apts = aptsResult.data as Array<{ id: string; tower: string; level: number; number: string; resident_id: string | null }>;
+    const aptIds = apts.map((a) => a.id);
+
+    // Fetch junction rows for these apartments
+    const jRes = aptIds.length > 0
+      ? await admin.from("condo_apartment_residents").select("apartment_id, user_id").in("apartment_id", aptIds)
+      : { data: [], error: null };
+
+    if (!jRes.error && jRes.data && jRes.data.length > 0) {
+      const userIds = [...new Set((jRes.data as Array<{ user_id: string }>).map((r) => r.user_id))];
+      const profilesRes = await admin
+        .from("profiles")
+        .select("id, name, email, phone, car_plate, pets_count, resident_type, status")
+        .in("id", userIds);
+
+      const profileMap = new Map<string, ProfileRow>(
+        ((profilesRes.data ?? []) as ProfileRow[]).map((p) => [p.id, p]),
+      );
+
+      const aptResidentsMap = new Map<string, Array<{ user_id: string; profile: ProfileRow | null }>>();
+      for (const row of jRes.data as Array<{ apartment_id: string; user_id: string }>) {
+        const list = aptResidentsMap.get(row.apartment_id) ?? [];
+        list.push({ user_id: row.user_id, profile: profileMap.get(row.user_id) ?? null });
+        aptResidentsMap.set(row.apartment_id, list);
+      }
+
+      const enriched: CondoApartmentRow[] = apts.map((a) => ({
+        ...a,
+        apt_residents: aptResidentsMap.get(a.id) ?? [],
+      }));
+      return rowsToFloors(enriched);
+    }
+
+    // No junction data — fall through to legacy
   }
 
-  console.warn("[predio] junction query failed, falling back:", withJunction.error);
+  console.warn("[predio] junction query failed, falling back:", aptsResult.error);
 
   // Fallback to legacy resident_id
   const extended = await applyCondFilter(
