@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Bell,
@@ -156,6 +156,17 @@ export default function AppLayout({ title, children }: { title: string; children
   const { dark, toggleDark } = useDarkMode();
   const [gearOpen, setGearOpen] = useState(false);
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
+  const navScrollRef = useRef<HTMLElement>(null);
+  const navScrollPos = useRef(0);
+
+  useEffect(() => {
+    const nav = navScrollRef.current;
+    if (!nav) return;
+    nav.scrollTop = navScrollPos.current;
+    function saveScroll() { navScrollPos.current = nav!.scrollTop; }
+    nav.addEventListener("scroll", saveScroll, { passive: true });
+    return () => nav.removeEventListener("scroll", saveScroll);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -257,7 +268,7 @@ export default function AppLayout({ title, children }: { title: string; children
           </div>
         )}
 
-        <nav className={`min-h-0 flex flex-1 flex-col overflow-y-auto overflow-x-hidden ${collapsed ? "gap-2 p-2" : "gap-0.5 p-3"}`}>
+        <nav ref={mobile ? undefined : navScrollRef} className={`min-h-0 flex flex-1 flex-col overflow-y-auto overflow-x-hidden ${collapsed ? "gap-2 p-2" : "gap-0.5 p-3"}`}>
           {groups.map((group) => (
             <div key={group.title} className={collapsed ? "space-y-2" : "space-y-1"}>
               {!collapsed && group.title && (
