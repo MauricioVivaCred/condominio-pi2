@@ -34,11 +34,14 @@ import {
   createFinanceEntry,
   listFinanceBills,
   listFinanceEntries,
+  markOverdueBills,
   updateFinanceBillStatus,
+  calculateLateFees,
   type CreateFinanceBillPayload,
   type FinanceBill,
   type FinanceBillStatus,
   type FinanceEntry,
+  type LateFeeBreakdown,
 } from "../../features/financeiro/services/financeiro";
 import { supabase } from "../../lib/supabase";
 import { fetchBuilding, getMockBuilding, type Floor } from "../../features/predio/services/predio";
@@ -157,6 +160,7 @@ export default function FinanceiroPage() {
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
   const [updatingBillId, setUpdatingBillId] = useState<string | null>(null);
   const [copiedBillCode, setCopiedBillCode] = useState("");
+  const [lateFeeConfirm, setLateFeeConfirm] = useState<{ bill: FinanceBill; breakdown: LateFeeBreakdown } | null>(null);
 
   const today = new Date().toISOString().slice(0, 10);
   const firstOfMonth = today.slice(0, 8) + "01";
@@ -192,6 +196,9 @@ export default function FinanceiroPage() {
     setError("");
 
     try {
+      // Mark overdue first so the list reflects current state
+      await markOverdueBills().catch(() => null);
+
       const [floors, financeEntries, financeBills] = await Promise.all([
         fetchBuilding().catch(() => getMockBuilding()),
         listFinanceEntries(),
@@ -671,17 +678,34 @@ export default function FinanceiroPage() {
   }
 
   async function handleBillStatusChange(bill: FinanceBill, status: FinanceBillStatus) {
-    setUpdatingBillId(bill.id);
-    setActionMessage("");
-
     if (!canChangeBillStatus(bill.status, status)) {
       setError("Transição de status inválida para este boleto.");
-      setUpdatingBillId(null);
       return;
     }
 
+    // If paying an overdue bill, show late fee confirmation first
+    if (status === "PAID" && bill.status === "OVERDUE") {
+      const breakdown = calculateLateFees(bill.amount, bill.due_date);
+      if (breakdown.daysLate > 0) {
+        setLateFeeConfirm({ bill, breakdown });
+        return;
+      }
+    }
+
+    await applyBillStatusChange(bill.id, status, null, null);
+  }
+
+  async function applyBillStatusChange(
+    billId: string,
+    status: FinanceBillStatus,
+    paidAt: string | null,
+    finalAmount: number | null,
+  ) {
+    setUpdatingBillId(billId);
+    setActionMessage("");
+
     try {
-      const updated = await updateFinanceBillStatus(bill.id, status);
+      const updated = await updateFinanceBillStatus(billId, status, paidAt, finalAmount);
       setBills((current) => [updated, ...current.filter((item) => item.id !== updated.id)]);
       setSelectedBillId(updated.id);
       setActionMessage(`Boleto ${updated.bill_code} atualizado para ${getBillStatusMeta(status).label.toLowerCase()}.`);
@@ -1122,6 +1146,61 @@ export default function FinanceiroPage() {
         onIssueBill={handleIssueBill}
         onIssueBatch={handleIssueBatch}
       />
+
+      {lateFeeConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="w-full max-w-md rounded-[28px] bg-white shadow-2xl ring-1 ring-slate-200">
+            <div className="border-b border-slate-100 px-6 py-5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600">Boleto em atraso</p>
+              <h3 className="mt-1 text-lg font-semibold text-slate-900">Confirmar baixa com encargos</h3>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <p className="text-sm text-slate-600">
+                Este boleto venceu há <span className="font-semibold text-rose-600">{lateFeeConfirm.breakdown.daysLate} dia{lateFeeConfirm.breakdown.daysLate !== 1 ? "s" : ""}</span>. Encargos calculados:
+              </p>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 divide-y divide-slate-100 text-sm">
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-slate-500">Valor original</span>
+                  <span className="font-medium text-slate-800">{formatCurrency(lateFeeConfirm.breakdown.originalAmount)}</span>
+                </div>
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-slate-500">Multa (2%)</span>
+                  <span className="font-medium text-rose-600">+ {formatCurrency(lateFeeConfirm.breakdown.fine)}</span>
+                </div>
+                <div className="flex justify-between px-4 py-2.5">
+                  <span className="text-slate-500">Juros ({lateFeeConfirm.breakdown.daysLate}d × 0,033%)</span>
+                  <span className="font-medium text-rose-600">+ {formatCurrency(lateFeeConfirm.breakdown.interest)}</span>
+                </div>
+                <div className="flex justify-between px-4 py-3 bg-white rounded-b-2xl">
+                  <span className="font-semibold text-slate-800">Total a receber</span>
+                  <span className="font-bold text-emerald-700">{formatCurrency(lateFeeConfirm.breakdown.totalAmount)}</span>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400">O valor registrado será atualizado para o total com encargos.</p>
+            </div>
+            <div className="flex gap-3 border-t border-slate-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setLateFeeConfirm(null)}
+                className="flex-1 rounded-2xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const { bill, breakdown } = lateFeeConfirm;
+                  setLateFeeConfirm(null);
+                  void applyBillStatusChange(bill.id, "PAID", null, breakdown.totalAmount);
+                }}
+                className="flex-1 rounded-2xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700"
+              >
+                Confirmar ({formatCurrency(lateFeeConfirm.breakdown.totalAmount)})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 }

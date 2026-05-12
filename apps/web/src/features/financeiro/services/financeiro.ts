@@ -276,6 +276,33 @@ export async function createFinanceBill(payload: CreateFinanceBillPayload): Prom
   return mapBill(billData as Record<string, unknown>);
 }
 
+// ─── Late fees ───────────────────────────────────────────────────────────────
+
+export type LateFeeBreakdown = {
+  originalAmount: number;
+  daysLate: number;
+  fine: number;       // 2% flat
+  interest: number;   // 0.033% per day (≈ 1% per month)
+  totalAmount: number;
+};
+
+export function calculateLateFees(originalAmount: number, dueDate: string, paymentDate?: string): LateFeeBreakdown {
+  const due = new Date(dueDate + "T00:00:00");
+  const paid = paymentDate ? new Date(paymentDate + "T00:00:00") : new Date();
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const daysLate = Math.max(0, Math.floor((paid.getTime() - due.getTime()) / msPerDay));
+
+  if (daysLate === 0) {
+    return { originalAmount, daysLate: 0, fine: 0, interest: 0, totalAmount: originalAmount };
+  }
+
+  const fine = originalAmount * 0.02;
+  const interest = originalAmount * 0.00033 * daysLate;
+  const totalAmount = originalAmount + fine + interest;
+
+  return { originalAmount, daysLate, fine, interest, totalAmount };
+}
+
 export type BatchBillResult = {
   created: FinanceBill[];
   skipped: { unit: string; reason: string }[];
@@ -378,10 +405,49 @@ export async function createFinanceBillBatch(payload: CreateFinanceBillBatchPayl
   return { created, skipped };
 }
 
+export async function markOverdueBills(): Promise<number> {
+  const condominioId = getCondominioUUID();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { data, error } = await supabase
+    .from("finance_bills")
+    .update({ status: "OVERDUE", updated_at: new Date().toISOString() })
+    .eq("condominio_id", condominioId)
+    .eq("status", "PENDING")
+    .lt("due_date", today)
+    .select("id");
+
+  if (error) throw new Error(error.message);
+
+  const count = (data ?? []).length;
+  if (count > 0) {
+    // Sync linked entries to "Atrasado"
+    const ids = (data as { id: string }[]).map((r) => r.id);
+    const { data: bills } = await supabase
+      .from("finance_bills")
+      .select("entry_id")
+      .in("id", ids);
+
+    const entryIds = (bills ?? [])
+      .map((b: { entry_id: string | null }) => b.entry_id)
+      .filter(Boolean) as string[];
+
+    if (entryIds.length > 0) {
+      await supabase
+        .from("finance_entries")
+        .update({ status: "Atrasado" })
+        .in("id", entryIds);
+    }
+  }
+
+  return count;
+}
+
 export async function updateFinanceBillStatus(
   id: string,
   status: FinanceBillStatus,
   paidAt?: string | null,
+  finalAmount?: number | null,
 ): Promise<FinanceBill> {
   const allowedStatusTransitions: Record<FinanceBillStatus, FinanceBillStatus[]> = {
     PENDING: ["PAID", "OVERDUE", "CANCELLED"],
@@ -403,13 +469,21 @@ export async function updateFinanceBillStatus(
   const allowedNext = allowedStatusTransitions[currentBill.status] ?? [];
   if (!allowedNext.includes(status)) throw new Error("Transição de status inválida.");
 
+  const updatePayload: Record<string, unknown> = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (status === "PAID") {
+    updatePayload.paid_at = paidAt ?? new Date().toISOString();
+    if (finalAmount != null) updatePayload.amount = finalAmount;
+  } else {
+    updatePayload.paid_at = null;
+  }
+
   const { data: updated, error: updateError } = await supabase
     .from("finance_bills")
-    .update({
-      status,
-      paid_at: status === "PAID" ? (paidAt ?? new Date().toISOString()) : null,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq("id", id)
     .select()
     .single();
@@ -418,11 +492,13 @@ export async function updateFinanceBillStatus(
 
   const updatedBill = mapBill(updated as Record<string, unknown>);
 
-  // Sync the linked entry status
+  // Sync the linked entry status (and amount if PAID with late fees)
   if (updatedBill.entry_id) {
+    const entryUpdate: Record<string, unknown> = { status: mapBillStatusToEntryStatus(status) };
+    if (status === "PAID" && finalAmount != null) entryUpdate.amount = finalAmount;
     await supabase
       .from("finance_entries")
-      .update({ status: mapBillStatusToEntryStatus(status) })
+      .update(entryUpdate)
       .eq("id", updatedBill.entry_id);
   }
 
