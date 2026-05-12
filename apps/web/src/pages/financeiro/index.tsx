@@ -717,7 +717,7 @@ export default function FinanceiroPage() {
               paidBills={paidBills}
               revenues={revenues}
               expenses={expenses}
-              totalUnits={building.flatMap((f) => f.units).length}
+              totalUnits={building.flatMap((f) => f.apartments).length}
             />
 
             <section className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_340px]">
