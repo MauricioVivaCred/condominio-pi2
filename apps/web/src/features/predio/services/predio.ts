@@ -82,6 +82,7 @@ type CondoApartmentRow = {
   number: string;
   resident_id: string | null;
   resident?: ProfileRow | null;
+  apt_residents?: Array<{ user_id: string; profile: ProfileRow | null }> | null;
 };
 
 type VisitorRequestActiveRow = {
@@ -226,13 +227,23 @@ function rowsToFloors(rows: Array<CondoApartmentRow | CustomApartmentRow>): Floo
       floorsMap.set(key, { tower: row.tower, level: row.level, apartments: [] });
     }
 
-    const resident = "resident" in row && row.resident ? profileToResident(row.resident) : null;
+    // prefer junction table residents, fall back to legacy resident_id
+    const aptRow = row as CondoApartmentRow;
+    let residents: Resident[] = [];
+    if (aptRow.apt_residents && aptRow.apt_residents.length > 0) {
+      residents = aptRow.apt_residents
+        .filter((r) => r.profile)
+        .map((r) => profileToResident(r.profile!));
+    } else if (aptRow.resident) {
+      residents = [profileToResident(aptRow.resident)];
+    }
+    const resident = residents[0] ?? null;
     floorsMap.get(key)?.apartments.push({
       id: row.id,
       number: row.number,
       floor: row.level,
       resident,
-      residents: resident ? [resident] : [],
+      residents,
       activeVisitors: [],
     });
   }
@@ -380,6 +391,21 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
     return condominioUUID ? q.eq("condominio_id", condominioUUID) : q;
   }
 
+  // Try with junction table first
+  const withJunction = await applyCondFilter(
+    admin
+      .from("condo_apartments")
+      .select("id, tower, level, number, resident_id, apt_residents:condo_apartment_residents(user_id, profile:profiles!condo_apartment_residents_user_id_fkey(id, name, email, phone, car_plate, pets_count, resident_type, status))")
+      .order("tower")
+      .order("level", { ascending: false })
+      .order("number"),
+  );
+
+  if (!withJunction.error) {
+    return rowsToFloors((withJunction.data ?? []) as CondoApartmentRow[]);
+  }
+
+  // Fallback to legacy resident_id
   const extended = await applyCondFilter(
     admin
       .from("condo_apartments")
@@ -391,32 +417,6 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
 
   if (!extended.error) {
     return rowsToFloors((extended.data ?? []) as CondoApartmentRow[]);
-  }
-
-  const fallback = await applyCondFilter(
-    admin
-      .from("condo_apartments")
-      .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, car_plate, pets_count, resident_type, status)")
-      .order("tower")
-      .order("level", { ascending: false })
-      .order("number"),
-  );
-
-  if (!fallback.error) {
-    return rowsToFloors((fallback.data ?? []) as CondoApartmentRow[]);
-  }
-
-  const fallbackWithoutCarPlate = await applyCondFilter(
-    admin
-      .from("condo_apartments")
-      .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, pets_count, resident_type, status)")
-      .order("tower")
-      .order("level", { ascending: false })
-      .order("number"),
-  );
-
-  if (!fallbackWithoutCarPlate.error) {
-    return rowsToFloors((fallbackWithoutCarPlate.data ?? []) as CondoApartmentRow[]);
   }
 
   const basic = await applyCondFilter(
@@ -476,17 +476,34 @@ export async function fetchBuilding(): Promise<Floor[]> {
 export async function fetchUsers(): Promise<{ id: string; name: string; email: string; role: string }[]> {
   try {
     const admin = getSupabaseAdmin();
-    const extended = await admin
+    const condominioUUID = getUser()?.condominioUUID ?? null;
+
+    // Filter by condominio via usuario_condominio join
+    let query = admin
       .from("profiles")
-      .select("id, name, email, role")
+      .select("id, name, email, role, resident_type")
       .order("name");
 
-    if (extended.error) throw extended.error;
-    return ((extended.data ?? []) as Array<{ id: string; name: string; email: string; role?: string | null }>).map((user) => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role ?? "MORADOR",
+    if (condominioUUID) {
+      // get user_ids that belong to this condominio
+      const { data: ucRows } = await admin
+        .from("usuario_condominio")
+        .select("user_id")
+        .eq("condominio_id", condominioUUID)
+        .eq("active", true);
+      const userIds = (ucRows ?? []).map((r: { user_id: string }) => r.user_id);
+      if (userIds.length > 0) {
+        query = (query as any).in("id", userIds);
+      }
+    }
+
+    const result = await query;
+    if (result.error) throw result.error;
+    return ((result.data ?? []) as Array<{ id: string; name: string; email: string; role?: string | null; resident_type?: string | null }>).map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role ?? "MORADOR",
     }));
   } catch {
     return readUsersCache().map((user) => ({
@@ -496,6 +513,24 @@ export async function fetchUsers(): Promise<{ id: string; name: string; email: s
       role: user.role ?? "MORADOR",
     }));
   }
+}
+
+export async function addApartmentResident(apartmentId: string, userId: string): Promise<void> {
+  const admin = getSupabaseAdmin();
+  const { error } = await admin
+    .from("condo_apartment_residents")
+    .insert([{ apartment_id: apartmentId, user_id: userId }] as never);
+  if (error) throw new Error(error.message);
+}
+
+export async function removeApartmentResident(apartmentId: string, userId: string): Promise<void> {
+  const admin = getSupabaseAdmin();
+  const { error } = await admin
+    .from("condo_apartment_residents")
+    .delete()
+    .eq("apartment_id", apartmentId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
 }
 
 export async function listBuildingApartmentOptions(): Promise<BuildingApartmentOption[]> {

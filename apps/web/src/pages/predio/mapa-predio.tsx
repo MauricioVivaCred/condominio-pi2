@@ -5,7 +5,6 @@ import { getUser } from "../../features/auth/services/auth";
 import { ApartmentCard } from "../../features/predio/components/apartment-card";
 import { MoradorModal } from "../../features/predio/components/morador-modal";
 import {
-  assignApartment,
   createApartment,
   createBlock,
   deleteApartment,
@@ -291,15 +290,6 @@ export default function MapaPredio() {
     setSelectedTower(f.tower);
     setStatusFilter(f.status);
     setViewMode(f.viewMode);
-  }
-
-  async function handleAssign(apartmentId: string, userId: string | null) {
-    await assignApartment(apartmentId, userId);
-    const refreshed = await loadBuilding();
-    if (selectedApt?.id === apartmentId) {
-      const updated = refreshed.flatMap((floor) => floor.apartments).find((item) => item.id === apartmentId);
-      setSelectedApt(updated ?? null);
-    }
   }
 
   async function handleCreateBlock(event: React.FormEvent<HTMLFormElement>) {
@@ -601,7 +591,18 @@ export default function MapaPredio() {
         onApply={applyFilters}
       />
 
-      <MoradorModal apartment={selectedApt} onClose={() => setSelectedApt(null)} onAssign={handleAssign} onDeleteApartment={handleDeleteApartmentFromModal} />
+      <MoradorModal
+        apartment={selectedApt}
+        onClose={() => setSelectedApt(null)}
+        onReload={async () => {
+          const refreshed = await loadBuilding();
+          if (selectedApt) {
+            const updated = refreshed.flatMap((f) => f.apartments).find((a) => a.id === selectedApt.id);
+            setSelectedApt(updated ?? null);
+          }
+        }}
+        onDeleteApartment={handleDeleteApartmentFromModal}
+      />
 
       {isAdmin && structureModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
