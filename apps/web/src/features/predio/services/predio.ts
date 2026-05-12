@@ -395,7 +395,7 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
   const withJunction = await applyCondFilter(
     admin
       .from("condo_apartments")
-      .select("id, tower, level, number, resident_id, apt_residents:condo_apartment_residents(user_id, profile:profiles!condo_apartment_residents_user_id_fkey(id, name, email, phone, car_plate, pets_count, resident_type, status))")
+      .select("id, tower, level, number, resident_id, apt_residents:condo_apartment_residents(user_id, profile:profiles(id, name, email, phone, car_plate, pets_count, resident_type, status))")
       .order("tower")
       .order("level", { ascending: false })
       .order("number"),
@@ -404,6 +404,8 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
   if (!withJunction.error) {
     return rowsToFloors((withJunction.data ?? []) as CondoApartmentRow[]);
   }
+
+  console.warn("[predio] junction query failed, falling back:", withJunction.error);
 
   // Fallback to legacy resident_id
   const extended = await applyCondFilter(
@@ -519,7 +521,11 @@ export async function addApartmentResident(apartmentId: string, userId: string):
   const { error } = await getSupabaseAdmin()
     .from("condo_apartment_residents")
     .insert([{ apartment_id: apartmentId, user_id: userId }] as never);
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.code === "23505") throw new Error("Este morador já está vinculado a este apartamento.");
+    throw new Error(error.message);
+  }
+
 }
 
 export async function removeApartmentResident(apartmentId: string, userId: string): Promise<void> {
