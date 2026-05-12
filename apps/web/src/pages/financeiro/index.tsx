@@ -151,23 +151,27 @@ export default function FinanceiroPage() {
   const [, setSavingExpense] = useState(false);
   const [, setSavingBill] = useState(false);
   const [activeModal, setActiveModal] = useState<FinanceModal>(null);
-  const [selectedBillId, setSelectedBillId] = useState<number | null>(null);
-  const [updatingBillId, setUpdatingBillId] = useState<number | null>(null);
+  const [selectedBillId, setSelectedBillId] = useState<string | null>(null);
+  const [updatingBillId, setUpdatingBillId] = useState<string | null>(null);
   const [copiedBillCode, setCopiedBillCode] = useState("");
 
+  const today = new Date().toISOString().slice(0, 10);
+  const firstOfMonth = today.slice(0, 8) + "01";
+  const tenthOfMonth = today.slice(0, 8) + "10";
+
   const [revenueForm, setRevenueForm] = useState<RevenueForm>({
-    identifier: "", description: "", amount: "", referenceDate: "2026-03-12",
+    identifier: "", description: "", amount: "", referenceDate: today,
     unit: "", resident: "", category: "Taxa condominial", paymentMethod: "Pix",
     status: "Recebido", documentName: "", notes: "",
   });
   const [expenseForm, setExpenseForm] = useState<ExpenseForm>({
-    identifier: "", description: "", amount: "", referenceDate: "2026-03-12",
-    dueDate: "2026-03-20", counterparty: "", category: "Energia",
+    identifier: "", description: "", amount: "", referenceDate: today,
+    dueDate: tenthOfMonth, counterparty: "", category: "Energia",
     paymentMethod: "Boleto", status: "Pendente", documentName: "", notes: "",
   });
   const [billForm, setBillForm] = useState<BillForm>({
     unit: "", resident: "", residentEmail: "", amount: "",
-    competenceDate: "2026-04-01", issueDate: "2026-04-01", dueDate: "2026-04-10", instructions: "",
+    competenceDate: firstOfMonth, issueDate: firstOfMonth, dueDate: tenthOfMonth, instructions: "",
   });
 
   async function loadData() {
@@ -258,7 +262,7 @@ export default function FinanceiroPage() {
   const balance = useMemo(() => receivedRevenue - paidExpense, [paidExpense, receivedRevenue]);
 
   const monthlySeries = useMemo<MonthlyPoint[]>(() => {
-    const current = new Date("2026-04-01T12:00:00");
+    const current = new Date();
     const map = new Map<string, MonthlyPoint>();
 
     for (let index = 5; index >= 0; index -= 1) {
@@ -517,7 +521,7 @@ export default function FinanceiroPage() {
       });
 
       setRevenueForm({
-        identifier: "", description: "", amount: "", referenceDate: "2026-03-12",
+        identifier: "", description: "", amount: "", referenceDate: new Date().toISOString().slice(0, 10),
         unit: "", resident: "", category: "Taxa condominial", paymentMethod: "Pix",
         status: "Recebido", documentName: "", notes: "",
       });
@@ -557,8 +561,8 @@ export default function FinanceiroPage() {
       });
 
       setExpenseForm({
-        identifier: "", description: "", amount: "", referenceDate: "2026-03-12",
-        dueDate: "2026-03-20", counterparty: "", category: "Energia",
+        identifier: "", description: "", amount: "", referenceDate: new Date().toISOString().slice(0, 10),
+        dueDate: new Date().toISOString().slice(0, 8) + "10", counterparty: "", category: "Energia",
         paymentMethod: "Boleto", status: "Pendente", documentName: "", notes: "",
       });
       setActiveModal(null);
@@ -595,7 +599,10 @@ export default function FinanceiroPage() {
       const created = await createFinanceBill(payload);
       setBillForm({
         unit: "", resident: "", residentEmail: "", amount: "",
-        competenceDate: "2026-04-01", issueDate: "2026-04-01", dueDate: "2026-04-10", instructions: "",
+        competenceDate: new Date().toISOString().slice(0, 8) + "01",
+        issueDate: new Date().toISOString().slice(0, 8) + "01",
+        dueDate: new Date().toISOString().slice(0, 8) + "10",
+        instructions: "",
       });
       setActiveModal(null);
       setActionMessage(`Boleto ${created.bill_code} emitido com sucesso.`);
@@ -906,7 +913,7 @@ export default function FinanceiroPage() {
                       <button
                         type="button"
                         onClick={async () => {
-                          await navigator.clipboard.writeText(selectedBill.digitable_line);
+                          await navigator.clipboard.writeText(selectedBill.digitable_line ?? "");
                           setCopiedBillCode(selectedBill.bill_code);
                           setActionMessage(`Linha digitavel de ${selectedBill.bill_code} copiada.`);
                           setTimeout(() => setCopiedBillCode(""), 2500);
