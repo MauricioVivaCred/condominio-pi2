@@ -68,6 +68,71 @@ type FinanceModal = "revenue" | "expense" | "bill" | null;
 
 const panelClass =
   "rounded-[28px] border border-slate-200/80 bg-white/95 p-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur";
+
+type CarouselProps = {
+  balance: number;
+  openBillsAmount: number;
+  pendingBills: FinanceBill[];
+  overdueBills: FinanceBill[];
+  delinquencyAmount: number;
+  paidBills: FinanceBill[];
+  revenues: FinanceEntry[];
+  expenses: FinanceEntry[];
+  totalUnits: number;
+};
+
+function FinanceCarousel({ balance, openBillsAmount, pendingBills, overdueBills, delinquencyAmount, paidBills, revenues, expenses, totalUnits }: CarouselProps) {
+  const totalRevenue = revenues.reduce((s, e) => s + e.amount, 0);
+  const totalExpense = expenses.reduce((s, e) => s + e.amount, 0);
+  const avgTicket = paidBills.length ? paidBills.reduce((s, b) => s + b.amount, 0) / paidBills.length : 0;
+  const inadimplenciaRate = totalUnits > 0 ? (overdueBills.length / totalUnits) * 100 : 0;
+  const cancelledBills = 0;
+
+  const cards = [
+    { title: "Saldo líquido", value: formatCurrency(balance), sub: "Recebido menos despesas pagas", icon: Wallet, tone: { card: "border-emerald-200", bg: "from-emerald-50/60 to-white", icon: "text-emerald-600 bg-emerald-50" } },
+    { title: "Carteira em aberto", value: formatCurrency(openBillsAmount), sub: `${pendingBills.length + overdueBills.length} boletos aguardando baixa`, icon: Receipt, tone: { card: "border-amber-200", bg: "from-amber-50/60 to-white", icon: "text-amber-600 bg-amber-50" } },
+    { title: "Inadimplência", value: formatCurrency(delinquencyAmount), sub: `${overdueBills.length} boletos atrasados`, icon: AlertTriangle, tone: { card: "border-rose-200", bg: "from-rose-50/60 to-white", icon: "text-rose-600 bg-rose-50" } },
+    { title: "Boletos pagos", value: formatCurrency(paidBills.reduce((s, b) => s + b.amount, 0)), sub: `${paidBills.length} cobranças compensadas`, icon: CheckCircle2, tone: { card: "border-sky-200", bg: "from-sky-50/60 to-white", icon: "text-sky-600 bg-sky-50" } },
+    { title: "Total receitas", value: formatCurrency(totalRevenue), sub: `${revenues.length} lançamentos de entrada`, icon: Landmark, tone: { card: "border-teal-200", bg: "from-teal-50/60 to-white", icon: "text-teal-600 bg-teal-50" } },
+    { title: "Total despesas", value: formatCurrency(totalExpense), sub: `${expenses.length} lançamentos de saída`, icon: Building2, tone: { card: "border-orange-200", bg: "from-orange-50/60 to-white", icon: "text-orange-600 bg-orange-50" } },
+    { title: "Ticket médio", value: formatCurrency(avgTicket), sub: "Valor médio por boleto pago", icon: CalendarClock, tone: { card: "border-violet-200", bg: "from-violet-50/60 to-white", icon: "text-violet-600 bg-violet-50" } },
+    { title: "Taxa inadimplência", value: `${inadimplenciaRate.toFixed(1)}%`, sub: `De ${totalUnits} unidades do condomínio`, icon: FileBarChart2, tone: { card: "border-pink-200", bg: "from-pink-50/60 to-white", icon: "text-pink-600 bg-pink-50" } },
+    { title: "Cobranças canceladas", value: String(cancelledBills), sub: "Boletos cancelados no período", icon: Copy, tone: { card: "border-slate-200", bg: "from-slate-50/60 to-white", icon: "text-slate-500 bg-slate-100" } },
+  ];
+
+  const doubled = [...cards, ...cards];
+
+  return (
+    <section className="relative overflow-hidden rounded-2xl">
+      <style>{`
+        @keyframes marquee {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .finance-marquee { animation: marquee 32s linear infinite; }
+        .finance-marquee:hover { animation-play-state: paused; }
+      `}</style>
+      <div className="flex finance-marquee gap-4 w-max">
+        {doubled.map((card, i) => {
+          const Icon = card.icon;
+          return (
+            <div key={i} className={`w-56 shrink-0 rounded-2xl border ${card.tone.card} bg-linear-to-b ${card.tone.bg} p-4 shadow-sm`}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${card.tone.icon}`}>
+                  <Icon size={16} />
+                </div>
+                <p className="text-xs font-semibold text-slate-500 leading-tight">{card.title}</p>
+              </div>
+              <p className="text-2xl font-black tracking-tight text-slate-900 leading-none">{card.value}</p>
+              <p className="mt-1.5 text-[11px] text-slate-400 leading-snug">{card.sub}</p>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function FinanceiroPage() {
   const user = getUser();
   const isResident = user?.role === "MORADOR";
@@ -643,60 +708,17 @@ export default function FinanceiroPage() {
 
         {!loading && !error && (
           <>
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {[
-                {
-                  title: "Saldo liquido",
-                  value: formatCurrency(balance),
-                  sub: "Recebido menos despesas pagas",
-                  icon: Wallet,
-                  cardTone: "border-emerald-200 bg-[linear-gradient(180deg,_#f7fffb,_#eefcf5)]",
-                  iconTone: "text-emerald-700",
-                  badgeTone: "border-emerald-100 bg-white/80 text-slate-500",
-                },
-                {
-                  title: "Carteira em aberto",
-                  value: formatCurrency(openBillsAmount),
-                  sub: `${pendingBills.length + overdueBills.length} boletos aguardando baixa`,
-                  icon: Receipt,
-                  cardTone: "border-amber-200 bg-[linear-gradient(180deg,_#fffaf0,_#fff4dd)]",
-                  iconTone: "text-amber-700",
-                  badgeTone: "border-amber-100 bg-white/80 text-slate-500",
-                },
-                {
-                  title: "Inadimplencia",
-                  value: formatCurrency(delinquencyAmount),
-                  sub: `${overdueBills.length} boletos atrasados`,
-                  icon: AlertTriangle,
-                  cardTone: "border-rose-200 bg-[linear-gradient(180deg,_#fff7f8,_#ffecef)]",
-                  iconTone: "text-rose-700",
-                  badgeTone: "border-rose-100 bg-white/80 text-slate-500",
-                },
-                {
-                  title: "Boletos pagos",
-                  value: formatCurrency(paidBills.reduce((sum, bill) => sum + bill.amount, 0)),
-                  sub: `${paidBills.length} cobrancas compensadas`,
-                  icon: CheckCircle2,
-                  cardTone: "border-sky-200 bg-[linear-gradient(180deg,_#f7fbff,_#eaf5ff)]",
-                  iconTone: "text-sky-700",
-                  badgeTone: "border-sky-100 bg-white/80 text-slate-500",
-                },
-              ].map((card) => {
-                const Icon = card.icon;
-                return (
-                  <div key={card.title} className={`${panelClass} p-4 ${card.cardTone}`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/90 bg-white shadow-[0_10px_24px_-16px_rgba(15,23,42,0.45)] ${card.iconTone}`}>
-                        <Icon size={18} />
-                      </div>
-                      <p className="text-[2rem] font-black tracking-[-0.05em] leading-none text-slate-900">{card.value}</p>
-                    </div>
-                    <p className="mt-3 text-base font-semibold text-slate-700">{card.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">{card.sub}</p>
-                  </div>
-                );
-              })}
-            </section>
+            <FinanceCarousel
+              balance={balance}
+              openBillsAmount={openBillsAmount}
+              pendingBills={pendingBills}
+              overdueBills={overdueBills}
+              delinquencyAmount={delinquencyAmount}
+              paidBills={paidBills}
+              revenues={revenues}
+              expenses={expenses}
+              totalUnits={building.flatMap((f) => f.units).length}
+            />
 
             <section className="grid gap-4 xl:grid-cols-[minmax(0,1.5fr)_340px]">
               <div className={`${panelClass} overflow-hidden bg-[linear-gradient(180deg,_rgba(255,255,255,0.98),_rgba(248,250,252,0.98))]`}>
