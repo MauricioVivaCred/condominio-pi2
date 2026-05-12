@@ -236,26 +236,29 @@ export default function EnquetesPage() {
       <div className="relative space-y-6">
         <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.10),_transparent_34%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.08),_transparent_30%),linear-gradient(180deg,_rgba(248,250,252,0.9),_rgba(248,250,252,0))]" />
 
-        <section className="py-1">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0">
-              <div className="inline-flex items-center gap-2.5 rounded-full border border-sky-200 bg-sky-50 px-5 py-3 text-sm font-bold uppercase tracking-[0.18em] text-sky-700">
-                <Vote size={16} />
-                Deliberacoes do condominio
+        <section className="rounded-[28px] border border-slate-100 bg-linear-to-br from-sky-50 via-white to-emerald-50 px-6 py-6 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="mb-1 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest text-sky-700">
+                  <Vote size={10} />
+                  Assembleia Digital
+                </span>
               </div>
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">Deliberações do condomínio</h1>
+              <p className="mt-0.5 text-sm text-slate-500">Participe das votações e acompanhe as decisões coletivas.</p>
             </div>
             {canManage && (
               <button
                 type="button"
                 onClick={() => setCreateOpen(true)}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="inline-flex shrink-0 items-center gap-2 rounded-2xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700"
               >
-                <PlusCircle size={16} />
+                <PlusCircle size={15} />
                 Nova assembleia
               </button>
             )}
           </div>
-
         </section>
         {info && <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{info}</p>}
 
@@ -318,28 +321,35 @@ export default function EnquetesPage() {
           })}
         </section>
 
-        <section className="space-y-3">
-          {loading ? (
-            <div className="rounded-[30px] border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500 shadow-sm">
-              Carregando assembleias...
-            </div>
-          ) : null}
-          {!loading && polls.length === 0 ? (
-            <div className="rounded-[30px] border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500 shadow-sm">
-              Nenhuma assembleia criada ainda.
-            </div>
-          ) : null}
-          {polls.map((poll) => (
-            <PollCard
-              key={poll.id}
-              poll={poll}
-              voterId={voterId}
-              busyPollId={busyPollId}
-              signing={signing}
-              onVote={handleVote}
-              onViewDetails={setSelectedPollId}
-            />
-          ))}
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-bold uppercase tracking-widest text-slate-400">
+              Assembleias {!loading && polls.length > 0 ? `· ${polls.length}` : ""}
+            </h2>
+          </div>
+          <div className="space-y-3">
+            {loading ? (
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-400">
+                Carregando assembleias...
+              </div>
+            ) : null}
+            {!loading && polls.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-400">
+                Nenhuma assembleia criada ainda.
+              </div>
+            ) : null}
+            {polls.map((poll) => (
+              <PollCard
+                key={poll.id}
+                poll={poll}
+                voterId={voterId}
+                busyPollId={busyPollId}
+                signing={signing}
+                onVote={handleVote}
+                onViewDetails={setSelectedPollId}
+              />
+            ))}
+          </div>
         </section>
       </div>
 
