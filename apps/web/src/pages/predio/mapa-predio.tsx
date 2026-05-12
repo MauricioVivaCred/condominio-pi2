@@ -596,10 +596,10 @@ export default function MapaPredio() {
         onClose={() => setSelectedApt(null)}
         onReload={async () => {
           const refreshed = await loadBuilding();
-          if (selectedApt) {
-            const updated = refreshed.flatMap((f) => f.apartments).find((a) => a.id === selectedApt.id);
-            setSelectedApt(updated ?? null);
-          }
+          setSelectedApt((current) => {
+            if (!current) return null;
+            return refreshed.flatMap((f) => f.apartments).find((a) => a.id === current.id) ?? current;
+          });
         }}
         onDeleteApartment={handleDeleteApartmentFromModal}
       />

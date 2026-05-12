@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "../../../lib/supabase";
+import { getSupabaseAdmin, supabase } from "../../../lib/supabase";
 import { getUser } from "../../auth/services/auth";
 
 export type ResidentStatus = "Proprietário" | "Inquilino" | "Vago" | "Visitante";
@@ -516,16 +516,14 @@ export async function fetchUsers(): Promise<{ id: string; name: string; email: s
 }
 
 export async function addApartmentResident(apartmentId: string, userId: string): Promise<void> {
-  const admin = getSupabaseAdmin();
-  const { error } = await admin
+  const { error } = await supabase
     .from("condo_apartment_residents")
     .insert([{ apartment_id: apartmentId, user_id: userId }] as never);
   if (error) throw new Error(error.message);
 }
 
 export async function removeApartmentResident(apartmentId: string, userId: string): Promise<void> {
-  const admin = getSupabaseAdmin();
-  const { error } = await admin
+  const { error } = await supabase
     .from("condo_apartment_residents")
     .delete()
     .eq("apartment_id", apartmentId)
