@@ -564,10 +564,40 @@ export async function inviteUser(payload: InviteUserPayload): Promise<void> {
   });
 
   if (error) {
-    if (error.message.toLowerCase().includes("already registered")) {
-      throw new Error("Email já cadastrado.");
+    if (!error.message.toLowerCase().includes("already registered")) {
+      throw new Error(error.message);
     }
-    throw new Error(error.message);
+
+    // Usuário já confirmado — adiciona ao novo condomínio diretamente
+    const { data: existingProfile } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("email", payload.email)
+      .single();
+
+    if (!existingProfile) throw new Error("Usuário não encontrado.");
+
+    const existingId = (existingProfile as { id: string }).id;
+
+    await admin.from("profiles").update({
+      role: payload.role,
+      resident_type: payload.residentType,
+    } as never).eq("id", existingId);
+
+    if (payload.condominioId) {
+      await admin.from("usuario_condominio").upsert({
+        user_id: existingId,
+        condominio_id: payload.condominioId,
+        active: true,
+        role: payload.role,
+      } as never, { onConflict: "user_id,condominio_id" });
+    }
+
+    if (payload.apartmentId) {
+      await syncApartmentAssignmentForUser(existingId, payload.apartmentId);
+    }
+
+    return;
   }
 
   const userId = data.user.id;
