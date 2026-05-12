@@ -10,7 +10,6 @@ import {
   deleteApartment,
   deleteTower,
   fetchBuilding,
-  getMockBuilding,
   type Apartment,
   type CreateApartmentInput,
   type CreateBlockInput,
@@ -158,7 +157,7 @@ export default function MapaPredio() {
   const isAdmin = user?.role === "ADMIN";
   const condominioName = user?.condominioName ?? "Edifício";
 
-  const [building, setBuilding] = useState<Floor[]>(() => getMockBuilding());
+  const [building, setBuilding] = useState<Floor[]>([]);
   const [selectedApt, setSelectedApt] = useState<Apartment | null>(null);
   const [selectedFloor, setSelectedFloor] = useState<{ level: number; tower: string } | null>(null);
   const [selectedTower, setSelectedTower] = useState("Todas");

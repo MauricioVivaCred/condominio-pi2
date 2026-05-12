@@ -45,7 +45,7 @@ import {
 } from "../../features/financeiro/services/financeiro";
 import { supabase } from "../../lib/supabase";
 import { listFornecedores, type Fornecedor } from "../../features/financeiro/services/fornecedores";
-import { fetchBuilding, getMockBuilding, type Floor } from "../../features/predio/services/predio";
+import { fetchBuilding, type Floor } from "../../features/predio/services/predio";
 import {
   type ExpenseCategory,
   type MonthlyPoint,
@@ -142,7 +142,7 @@ function FinanceCarousel({ balance, openBillsAmount, pendingBills, overdueBills,
 export default function FinanceiroPage() {
   const user = getUser();
   const isResident = user?.role === "MORADOR";
-  const [building, setBuilding] = useState<Floor[]>(() => getMockBuilding());
+  const [building, setBuilding] = useState<Floor[]>([]);
   const [entries, setEntries] = useState<FinanceEntry[]>([]);
   const [bills, setBills] = useState<FinanceBill[]>([]);
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
@@ -202,7 +202,7 @@ export default function FinanceiroPage() {
       await markOverdueBills().catch(() => null);
 
       const [floors, financeEntries, financeBills, forn] = await Promise.all([
-        fetchBuilding().catch(() => getMockBuilding()),
+        fetchBuilding().catch(() => []),
         listFinanceEntries(),
         listFinanceBills({ limit: 200 }),
         listFornecedores().catch(() => []),

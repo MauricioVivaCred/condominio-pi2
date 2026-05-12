@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseAdmin } from "../../../lib/supabase";
-import { syncApartmentAssignmentForUser } from "../../predio/services/predio";
+import { addApartmentResident } from "../../predio/services/predio";
 
 export type ResidentType = "PROPRIETARIO" | "INQUILINO" | "VISITANTE";
 export type UserStatus = "ATIVO" | "INATIVO";
@@ -594,7 +594,7 @@ export async function inviteUser(payload: InviteUserPayload): Promise<void> {
     }
 
     if (payload.apartmentId) {
-      await syncApartmentAssignmentForUser(existingId, payload.apartmentId);
+      await addApartmentResident(payload.apartmentId, existingId).catch(() => null);
     }
 
     return;
@@ -624,7 +624,7 @@ export async function inviteUser(payload: InviteUserPayload): Promise<void> {
 
   // Vincula ao apartamento se informado
   if (payload.apartmentId) {
-    await syncApartmentAssignmentForUser(userId, payload.apartmentId);
+    await addApartmentResident(payload.apartmentId, userId).catch(() => null);
   }
 }
 
@@ -666,7 +666,7 @@ export async function updateUserRecord(payload: UpdateUserPayload): Promise<User
 
   const fallbackUser = buildUserRecordFromPayload(payload.id, payload);
   updateCachedUser(fallbackUser);
-  await syncApartmentAssignmentForUser(payload.id, payload.apartmentId);
+  if (payload.apartmentId) await addApartmentResident(payload.apartmentId, payload.id).catch(() => null);
 
   try {
     const user = await getProfileById(admin, payload.id);
