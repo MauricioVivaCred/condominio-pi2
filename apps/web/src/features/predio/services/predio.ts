@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../lib/supabase";
+import { getUser } from "../../auth/services/auth";
 
 export type ResidentStatus = "Proprietário" | "Inquilino" | "Vago" | "Visitante";
 
@@ -25,6 +26,7 @@ export type Apartment = {
   number: string;
   floor: number;
   resident: Resident | null;
+  residents: Resident[];
   activeVisitors: ActiveVisitor[];
 };
 
@@ -224,11 +226,13 @@ function rowsToFloors(rows: Array<CondoApartmentRow | CustomApartmentRow>): Floo
       floorsMap.set(key, { tower: row.tower, level: row.level, apartments: [] });
     }
 
+    const resident = "resident" in row && row.resident ? profileToResident(row.resident) : null;
     floorsMap.get(key)?.apartments.push({
       id: row.id,
       number: row.number,
       floor: row.level,
-      resident: "resident" in row && row.resident ? profileToResident(row.resident) : null,
+      resident,
+      residents: resident ? [resident] : [],
       activeVisitors: [],
     });
   }
@@ -283,6 +287,7 @@ function attachActiveVisitors(floors: Floor[], visitorsByApartment: Map<string, 
     ...floor,
     apartments: floor.apartments.map((apartment) => ({
       ...apartment,
+      residents: apartment.residents ?? (apartment.resident ? [apartment.resident] : []),
       activeVisitors: visitorsByApartment.get(apartment.id) ?? [],
     })),
   }));
@@ -368,45 +373,59 @@ async function listProfileRows(): Promise<ProfileRow[]> {
 
 async function fetchBuildingFromSupabase(): Promise<Floor[]> {
   const admin = getSupabaseAdmin();
-  const extended = await admin
+  const condominioUUID = getUser()?.condominioUUID ?? null;
+
+  function applyCondFilter<T extends ReturnType<typeof admin.from>>(q: T): T {
+    return (condominioUUID ? (q as any).eq("condominio_id", condominioUUID) : q) as T;
+  }
+
+  const base = admin
     .from("condo_apartments")
     .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, phone, car_plate, pets_count, resident_type, status)")
     .order("tower")
     .order("level", { ascending: false })
     .order("number");
 
+  const extended = await applyCondFilter(base);
+
   if (!extended.error) {
     return rowsToFloors((extended.data ?? []) as CondoApartmentRow[]);
   }
 
-  const fallback = await admin
-    .from("condo_apartments")
-    .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, car_plate, pets_count, resident_type, status)")
-    .order("tower")
-    .order("level", { ascending: false })
-    .order("number");
+  const fallback = await applyCondFilter(
+    admin
+      .from("condo_apartments")
+      .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, car_plate, pets_count, resident_type, status)")
+      .order("tower")
+      .order("level", { ascending: false })
+      .order("number"),
+  );
 
   if (!fallback.error) {
     return rowsToFloors((fallback.data ?? []) as CondoApartmentRow[]);
   }
 
-  const fallbackWithoutCarPlate = await admin
-    .from("condo_apartments")
-    .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, pets_count, resident_type, status)")
-    .order("tower")
-    .order("level", { ascending: false })
-    .order("number");
+  const fallbackWithoutCarPlate = await applyCondFilter(
+    admin
+      .from("condo_apartments")
+      .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, pets_count, resident_type, status)")
+      .order("tower")
+      .order("level", { ascending: false })
+      .order("number"),
+  );
 
   if (!fallbackWithoutCarPlate.error) {
     return rowsToFloors((fallbackWithoutCarPlate.data ?? []) as CondoApartmentRow[]);
   }
 
-  const basic = await admin
-    .from("condo_apartments")
-    .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email)")
-    .order("tower")
-    .order("level", { ascending: false })
-    .order("number");
+  const basic = await applyCondFilter(
+    admin
+      .from("condo_apartments")
+      .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email)")
+      .order("tower")
+      .order("level", { ascending: false })
+      .order("number"),
+  );
 
   if (basic.error) throw basic.error;
 
@@ -426,11 +445,13 @@ async function applyMockAssignments(floors: Floor[]): Promise<Floor[]> {
       const assignment = assignments[apartment.id];
       if (assignment === undefined) return apartment;
 
+      const resolved = assignment.userId
+        ? (byId.get(assignment.userId) ?? assignment.resident ?? apartment.resident)
+        : null;
       return {
         ...apartment,
-        resident: assignment.userId
-          ? (byId.get(assignment.userId) ?? assignment.resident ?? apartment.resident)
-          : null,
+        resident: resolved,
+        residents: resolved ? [resolved] : [],
       };
     }),
   }));
@@ -813,7 +834,7 @@ export async function listTowerSummaries(): Promise<TowerSummary[]> {
 
 
 export function getMockBuilding(): Floor[] {
-  type MockApartment = Omit<Apartment, "activeVisitors">;
+  type MockApartment = Omit<Apartment, "activeVisitors" | "residents">;
   type MockFloor = Omit<Floor, "apartments"> & { apartments: MockApartment[] };
 
   const floors: MockFloor[] = [
@@ -963,6 +984,7 @@ export function getMockBuilding(): Floor[] {
     ...floor,
     apartments: floor.apartments.map((apartment) => ({
       ...apartment,
+      residents: apartment.resident ? [apartment.resident] : [],
       activeVisitors: [],
     })),
   }));
