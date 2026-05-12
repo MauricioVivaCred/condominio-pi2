@@ -19,10 +19,12 @@ drop policy if exists "fornecedores: admins can read" on public.fornecedores;
 create policy "fornecedores: admins can read"
   on public.fornecedores for select
   using (
-    condominio_id = auth_condominio_id()
-    and exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role in ('ADMIN', 'MASTER_ADMIN')
+    exists (
+      select 1 from public.usuario_condominio uc
+      where uc.user_id = auth.uid()
+        and uc.condominio_id = fornecedores.condominio_id
+        and uc.active = true
+        and uc.role in ('ADMIN', 'MASTER_ADMIN')
     )
   );
 
@@ -30,10 +32,12 @@ drop policy if exists "fornecedores: admins can insert" on public.fornecedores;
 create policy "fornecedores: admins can insert"
   on public.fornecedores for insert
   with check (
-    condominio_id = auth_condominio_id()
-    and exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role in ('ADMIN', 'MASTER_ADMIN')
+    exists (
+      select 1 from public.usuario_condominio uc
+      where uc.user_id = auth.uid()
+        and uc.condominio_id = fornecedores.condominio_id
+        and uc.active = true
+        and uc.role in ('ADMIN', 'MASTER_ADMIN')
     )
   );
 
@@ -41,10 +45,12 @@ drop policy if exists "fornecedores: admins can update" on public.fornecedores;
 create policy "fornecedores: admins can update"
   on public.fornecedores for update
   using (
-    condominio_id = auth_condominio_id()
-    and exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role in ('ADMIN', 'MASTER_ADMIN')
+    exists (
+      select 1 from public.usuario_condominio uc
+      where uc.user_id = auth.uid()
+        and uc.condominio_id = fornecedores.condominio_id
+        and uc.active = true
+        and uc.role in ('ADMIN', 'MASTER_ADMIN')
     )
   );
 
@@ -52,9 +58,11 @@ drop policy if exists "fornecedores: admins can delete" on public.fornecedores;
 create policy "fornecedores: admins can delete"
   on public.fornecedores for delete
   using (
-    condominio_id = auth_condominio_id()
-    and exists (
-      select 1 from public.profiles
-      where id = auth.uid() and role in ('ADMIN', 'MASTER_ADMIN')
+    exists (
+      select 1 from public.usuario_condominio uc
+      where uc.user_id = auth.uid()
+        and uc.condominio_id = fornecedores.condominio_id
+        and uc.active = true
+        and uc.role in ('ADMIN', 'MASTER_ADMIN')
     )
   );
