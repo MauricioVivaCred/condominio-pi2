@@ -24,10 +24,12 @@ create index if not exists finance_entries_reference_date_idx on public.finance_
 
 alter table public.finance_entries enable row level security;
 
+drop policy if exists "finance_entries: condominio members can read" on public.finance_entries;
 create policy "finance_entries: condominio members can read"
   on public.finance_entries for select
   using (condominio_id = auth_condominio_id());
 
+drop policy if exists "finance_entries: admins can insert" on public.finance_entries;
 create policy "finance_entries: admins can insert"
   on public.finance_entries for insert
   with check (
@@ -38,6 +40,7 @@ create policy "finance_entries: admins can insert"
     )
   );
 
+drop policy if exists "finance_entries: admins can update" on public.finance_entries;
 create policy "finance_entries: admins can update"
   on public.finance_entries for update
   using (
@@ -78,7 +81,7 @@ create index if not exists finance_bills_resident_email_idx on public.finance_bi
 
 alter table public.finance_bills enable row level security;
 
--- ADMIN: vê todos do seu condomínio
+drop policy if exists "finance_bills: admins can read own condominio" on public.finance_bills;
 create policy "finance_bills: admins can read own condominio"
   on public.finance_bills for select
   using (
@@ -89,7 +92,7 @@ create policy "finance_bills: admins can read own condominio"
     )
   );
 
--- MORADOR: vê apenas os seus próprios boletos (por email)
+drop policy if exists "finance_bills: residents can read own bills" on public.finance_bills;
 create policy "finance_bills: residents can read own bills"
   on public.finance_bills for select
   using (
@@ -97,6 +100,7 @@ create policy "finance_bills: residents can read own bills"
     and resident_email = auth.email()
   );
 
+drop policy if exists "finance_bills: admins can insert" on public.finance_bills;
 create policy "finance_bills: admins can insert"
   on public.finance_bills for insert
   with check (
@@ -107,6 +111,7 @@ create policy "finance_bills: admins can insert"
     )
   );
 
+drop policy if exists "finance_bills: admins can update" on public.finance_bills;
 create policy "finance_bills: admins can update"
   on public.finance_bills for update
   using (

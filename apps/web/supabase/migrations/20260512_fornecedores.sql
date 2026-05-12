@@ -15,6 +15,7 @@ create index if not exists fornecedores_condominio_id_idx on public.fornecedores
 
 alter table public.fornecedores enable row level security;
 
+drop policy if exists "fornecedores: admins can read" on public.fornecedores;
 create policy "fornecedores: admins can read"
   on public.fornecedores for select
   using (
@@ -25,6 +26,7 @@ create policy "fornecedores: admins can read"
     )
   );
 
+drop policy if exists "fornecedores: admins can insert" on public.fornecedores;
 create policy "fornecedores: admins can insert"
   on public.fornecedores for insert
   with check (
@@ -35,6 +37,7 @@ create policy "fornecedores: admins can insert"
     )
   );
 
+drop policy if exists "fornecedores: admins can update" on public.fornecedores;
 create policy "fornecedores: admins can update"
   on public.fornecedores for update
   using (
@@ -45,6 +48,7 @@ create policy "fornecedores: admins can update"
     )
   );
 
+drop policy if exists "fornecedores: admins can delete" on public.fornecedores;
 create policy "fornecedores: admins can delete"
   on public.fornecedores for delete
   using (
