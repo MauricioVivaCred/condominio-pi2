@@ -211,7 +211,7 @@ export default function AppLayout({ title, children }: { title: string; children
   const role = user?.role;
   const groups = buildGroups(role, condPlan);
 
-  function SidebarContent({ mobile = false }: { mobile?: boolean }) {
+  function renderSidebar(mobile = false) {
     const collapsed = mobile ? false : sidebarCollapsed;
 
     return (
@@ -422,7 +422,7 @@ export default function AppLayout({ title, children }: { title: string; children
           sidebarCollapsed ? "w-20" : "w-60"
         }`}
       >
-        <SidebarContent />
+        {renderSidebar()}
       </aside>
 
       {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setSidebarOpen(false)} />}
@@ -432,7 +432,7 @@ export default function AppLayout({ title, children }: { title: string; children
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <SidebarContent mobile />
+        {renderSidebar(true)}
       </aside>
 
       {bellOpen && (
