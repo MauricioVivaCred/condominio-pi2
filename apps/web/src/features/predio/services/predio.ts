@@ -394,17 +394,26 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
   }
 
   // Try with junction table: fetch apartments + residents separately to avoid FK ambiguity
-  const aptsResult = await applyCondFilter(
-    admin
-      .from("condo_apartments")
-      .select("id, tower, level, number, resident_id")
-      .order("tower")
-      .order("level", { ascending: false })
-      .order("number"),
-  );
+  // Include apartments with condominio_id matching OR null (legacy data not yet migrated)
+  const aptsQuery = condominioUUID
+    ? admin
+        .from("condo_apartments")
+        .select("id, tower, level, number, resident_id, condominio_id")
+        .or(`condominio_id.eq.${condominioUUID},condominio_id.is.null`)
+        .order("tower")
+        .order("level", { ascending: false })
+        .order("number")
+    : admin
+        .from("condo_apartments")
+        .select("id, tower, level, number, resident_id, condominio_id")
+        .order("tower")
+        .order("level", { ascending: false })
+        .order("number");
+
+  const aptsResult = await aptsQuery;
 
   if (!aptsResult.error) {
-    const apts = aptsResult.data as Array<{ id: string; tower: string; level: number; number: string; resident_id: string | null }>;
+    const apts = aptsResult.data as Array<{ id: string; tower: string; level: number; number: string; resident_id: string | null; condominio_id: string | null }>;
     const aptIds = apts.map((a) => a.id);
 
     // Fetch junction rows for these apartments
@@ -442,32 +451,29 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
 
   console.warn("[predio] junction query failed, falling back:", aptsResult.error);
 
-  // Fallback to legacy resident_id
-  const extended = await applyCondFilter(
-    admin
-      .from("condo_apartments")
-      .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, phone, car_plate, pets_count, resident_type, status)")
-      .order("tower")
-      .order("level", { ascending: false })
-      .order("number"),
-  );
+  // Fallback to legacy resident_id (also include condominio_id IS NULL for unmigrated data)
+  const legacyQuery = condominioUUID
+    ? admin
+        .from("condo_apartments")
+        .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, phone, car_plate, pets_count, resident_type, status)")
+        .or(`condominio_id.eq.${condominioUUID},condominio_id.is.null`)
+        .order("tower")
+        .order("level", { ascending: false })
+        .order("number")
+    : admin
+        .from("condo_apartments")
+        .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, phone, car_plate, pets_count, resident_type, status)")
+        .order("tower")
+        .order("level", { ascending: false })
+        .order("number");
+
+  const extended = await legacyQuery;
 
   if (!extended.error) {
     return rowsToFloors((extended.data ?? []) as CondoApartmentRow[]);
   }
 
-  const basic = await applyCondFilter(
-    admin
-      .from("condo_apartments")
-      .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email)")
-      .order("tower")
-      .order("level", { ascending: false })
-      .order("number"),
-  );
-
-  if (basic.error) throw basic.error;
-
-  return rowsToFloors((basic.data ?? []) as CondoApartmentRow[]);
+  throw extended.error;
 }
 
 async function applyMockAssignments(floors: Floor[]): Promise<Floor[]> {
