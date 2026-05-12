@@ -516,14 +516,14 @@ export async function fetchUsers(): Promise<{ id: string; name: string; email: s
 }
 
 export async function addApartmentResident(apartmentId: string, userId: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabaseAdmin()
     .from("condo_apartment_residents")
     .insert([{ apartment_id: apartmentId, user_id: userId }] as never);
   if (error) throw new Error(error.message);
 }
 
 export async function removeApartmentResident(apartmentId: string, userId: string): Promise<void> {
-  const { error } = await supabase
+  const { error } = await getSupabaseAdmin()
     .from("condo_apartment_residents")
     .delete()
     .eq("apartment_id", apartmentId)
