@@ -143,6 +143,195 @@ function getInitialCollapsedState() {
   return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "true";
 }
 
+type SidebarProps = {
+  mobile: boolean;
+  collapsed: boolean;
+  condName: string | null;
+  condPlan: PlanId;
+  groups: NavGroup[];
+  openSubmenus: Record<string, boolean>;
+  setOpenSubmenus: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  user: ReturnType<typeof getUser>;
+  initials: string;
+  dark: boolean;
+  gearOpen: boolean;
+  setGearOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  toggleDark: () => void;
+  sair: () => void;
+  nav: ReturnType<typeof useNavigate>;
+  location: ReturnType<typeof useLocation>;
+  onCollapse: () => void;
+  onCloseMobile: () => void;
+};
+
+function SidebarContent({
+  mobile, collapsed: collapsedProp, condName, condPlan, groups, openSubmenus,
+  setOpenSubmenus, user, initials, dark, gearOpen, setGearOpen, toggleDark,
+  sair, nav, location, onCollapse, onCloseMobile,
+}: SidebarProps) {
+  const collapsed = mobile ? false : collapsedProp;
+  const navRef = useRef<HTMLElement>(null);
+  const scrollPos = useRef(0);
+
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+    el.scrollTop = scrollPos.current;
+    function save() { scrollPos.current = el!.scrollTop; }
+    el.addEventListener("scroll", save, { passive: true });
+    return () => el.removeEventListener("scroll", save);
+  });
+
+  return (
+    <>
+      <div className={`shrink-0 border-b border-gray-100 ${collapsed ? "flex flex-col items-center gap-2 px-2 py-3" : "flex h-16 items-center gap-2 px-4"}`}>
+        <div className={`shrink-0 overflow-hidden ${collapsed ? "h-11 w-11 rounded-2xl" : "h-8 w-8 rounded-xl"}`}>
+          <img src="/Logo.png" alt="Logo" className="h-full w-full object-contain" />
+        </div>
+        {!collapsed && <span className="flex-1 text-sm font-bold leading-none text-gray-900">OmniLar</span>}
+        <div className={`flex items-center ${collapsed ? "justify-center" : "gap-1"}`}>
+          {!mobile && (
+            <button onClick={onCollapse}
+              className="rounded-lg bg-transparent p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
+              title={collapsed ? "Expandir menu" : "Recolher menu"}>
+              {collapsed ? <ChevronsRight size={17} /> : <ChevronsLeft size={17} />}
+            </button>
+          )}
+          {mobile && (
+            <button onClick={onCloseMobile}
+              className="rounded-lg bg-transparent p-1.5 text-gray-400 transition-colors hover:bg-gray-100">
+              <X size={18} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {condName && !collapsed && (
+        <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 text-center">
+          <p className="wrap-break-word text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600 leading-snug">{condName}</p>
+          {condPlan && (
+            <span className="mt-1 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-400 uppercase tracking-wide">
+              {condPlan}
+            </span>
+          )}
+        </div>
+      )}
+
+      <nav ref={navRef} className={`min-h-0 flex flex-1 flex-col overflow-y-auto overflow-x-hidden ${collapsed ? "gap-2 p-2" : "gap-0.5 p-3"}`}>
+        {groups.map((group) => (
+          <div key={group.title} className={collapsed ? "space-y-2" : "space-y-1"}>
+            {!collapsed && group.title && (
+              <p className={`mx-1 mt-3 mb-1 rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${GROUP_COLORS[group.title] ?? "bg-gray-100 text-gray-400"}`}>
+                {group.title}
+              </p>
+            )}
+            {group.links.map((item) => {
+              if (isSubmenu(item)) {
+                const ParentIcon = item.icon;
+                const isOpen = openSubmenus[item.label] ?? false;
+                const hasActiveChild = item.children.some((c) => location.pathname === c.path);
+                if (collapsed) {
+                  return (
+                    <button key={item.label} title={item.label}
+                      className={`w-full flex h-11 items-center justify-center px-0 rounded-xl border-none text-sm font-medium transition-colors ${hasActiveChild ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}>
+                      <ParentIcon size={17} className={hasActiveChild ? "text-indigo-600" : "text-gray-400"} />
+                    </button>
+                  );
+                }
+                return (
+                  <div key={item.label}>
+                    <button
+                      onClick={() => setOpenSubmenus((prev) => ({ ...prev, [item.label]: !isOpen }))}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-xl border-none text-sm font-medium transition-colors ${hasActiveChild ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}>
+                      <ParentIcon size={17} className={hasActiveChild ? "text-indigo-600" : "text-gray-400"} />
+                      <span className="flex-1">{item.label}</span>
+                      <ChevronDown size={14} className={`text-gray-400 transition-transform ${isOpen || hasActiveChild ? "rotate-180" : ""}`} />
+                    </button>
+                    {(isOpen || hasActiveChild) && (
+                      <div className="ml-4 mt-0.5 space-y-0.5">
+                        {item.children.map((child) => {
+                          const childActive = location.pathname === child.path;
+                          const ChildIcon = child.icon;
+                          return (
+                            <button key={child.path}
+                              onClick={() => { nav(child.path); onCloseMobile(); }}
+                              className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-xl border-none text-sm font-medium transition-colors ${childActive ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}>
+                              <ChildIcon size={15} className={childActive ? "text-indigo-600" : "text-gray-400"} />
+                              {child.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              const { label, path, icon: Icon } = item;
+              const active = location.pathname === path;
+              return (
+                <button key={path}
+                  onClick={() => { nav(path); onCloseMobile(); }}
+                  title={collapsed ? label : undefined}
+                  className={`w-full rounded-xl border-none text-sm font-medium transition-colors ${
+                    collapsed
+                      ? `flex h-11 items-center justify-center px-0 ${active ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`
+                      : `flex items-center gap-3 px-3 py-2.5 text-left ${active ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`
+                  }`}>
+                  <Icon size={17} className={active ? "text-indigo-600" : "text-gray-400"} />
+                  {!collapsed && label}
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </nav>
+
+      <div className="shrink-0 border-t border-gray-100 p-3">
+        <div className={`flex px-2 py-2 ${collapsed ? "flex-col items-center gap-2" : "items-center gap-2.5"}`}>
+          {user?.avatarUrl
+            ? <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 shrink-0 rounded-full object-cover" />
+            : <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100"><span className="text-xs font-bold text-indigo-700">{initials}</span></div>
+          }
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold leading-tight text-gray-900">{user?.name ?? "Usuario"}</p>
+              <p className="mt-0.5 text-[11px] leading-tight text-gray-400">
+                {user?.role === "MASTER_ADMIN" ? "Master Admin" : user?.role === "ADMIN" ? "Administrador" : user?.role === "PORTEIRO" ? "Portaria" : "Morador"}
+              </p>
+            </div>
+          )}
+          <div className="relative shrink-0">
+            <button onClick={() => setGearOpen((v) => !v)} title="Configuracoes"
+              className="rounded-lg bg-transparent p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700">
+              <Settings size={16} />
+            </button>
+            {gearOpen && (
+              <>
+                <div className="fixed inset-0 z-199" onClick={() => setGearOpen(false)} />
+                <div className={`absolute z-200 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl ${collapsed ? "bottom-0 left-full ml-2 w-52" : "bottom-full right-0 mb-2 w-52"}`}>
+                  <button onClick={() => { setGearOpen(false); nav("/perfil"); }}
+                    className="flex w-full items-center gap-2.5 bg-transparent px-3 py-2.5 text-left text-sm text-gray-600 transition-colors hover:bg-gray-100">
+                    <User size={15} className="text-gray-400" /> Alterar dados pessoais
+                  </button>
+                  <button onClick={() => { toggleDark(); setGearOpen(false); }}
+                    className="flex w-full items-center gap-2.5 bg-transparent px-3 py-2.5 text-left text-sm text-gray-600 transition-colors hover:bg-gray-100">
+                    {dark ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-gray-400" />}
+                    {dark ? "Modo claro" : "Modo escuro"}
+                  </button>
+                  <div className="my-1 border-t border-gray-100" />
+                  <button onClick={sair}
+                    className="flex w-full items-center gap-2.5 bg-transparent px-3 py-2.5 text-left text-sm text-rose-600 transition-colors hover:bg-rose-50">
+                    <LogOut size={15} className="text-rose-500" /> Sair
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
 
 export default function AppLayout({ title, children }: { title: string; children: ReactNode }) {
   const nav = useNavigate();
@@ -156,17 +345,6 @@ export default function AppLayout({ title, children }: { title: string; children
   const { dark, toggleDark } = useDarkMode();
   const [gearOpen, setGearOpen] = useState(false);
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
-  const navScrollRef = useRef<HTMLElement>(null);
-  const navScrollPos = useRef(0);
-
-  useEffect(() => {
-    const nav = navScrollRef.current;
-    if (!nav) return;
-    nav.scrollTop = navScrollPos.current;
-    function saveScroll() { navScrollPos.current = nav!.scrollTop; }
-    nav.addEventListener("scroll", saveScroll, { passive: true });
-    return () => nav.removeEventListener("scroll", saveScroll);
-  }, [location.pathname]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -222,214 +400,25 @@ export default function AppLayout({ title, children }: { title: string; children
   const role = user?.role;
   const groups = buildGroups(role, condPlan);
 
-  function renderSidebar(mobile = false) {
-    const collapsed = mobile ? false : sidebarCollapsed;
-
-    return (
-      <>
-        <div className={`shrink-0 border-b border-gray-100 ${collapsed ? "flex flex-col items-center gap-2 px-2 py-3" : "flex h-16 items-center gap-2 px-4"}`}>
-          <div className={`shrink-0 overflow-hidden ${collapsed ? "h-11 w-11 rounded-2xl" : "h-8 w-8 rounded-xl"}`}>
-            <img src="/Logo.png" alt="Logo" className="h-full w-full object-contain" />
-          </div>
-
-          {!collapsed && <span className="flex-1 text-sm font-bold leading-none text-gray-900">OmniLar</span>}
-
-          <div className={`flex items-center ${collapsed ? "justify-center" : "gap-1"}`}>
-            {!mobile && (
-              <button
-                onClick={() => setSidebarCollapsed((value) => !value)}
-                className="rounded-lg bg-transparent p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-                title={collapsed ? "Expandir menu" : "Recolher menu"}
-              >
-                {collapsed ? <ChevronsRight size={17} /> : <ChevronsLeft size={17} />}
-              </button>
-            )}
-
-            {mobile && (
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="rounded-lg bg-transparent p-1.5 text-gray-400 transition-colors hover:bg-gray-100"
-                title="Fechar menu"
-              >
-                <X size={18} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {condName && !collapsed && (
-          <div className="shrink-0 border-b border-gray-100 px-4 py-2.5 text-center">
-            <p className="wrap-break-word text-[11px] font-semibold uppercase tracking-[0.16em] text-indigo-600 leading-snug">{condName}</p>
-            {condPlan && (
-              <span className="mt-1 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-400 uppercase tracking-wide">
-                {condPlan}
-              </span>
-            )}
-          </div>
-        )}
-
-        <nav ref={mobile ? undefined : navScrollRef} className={`min-h-0 flex flex-1 flex-col overflow-y-auto overflow-x-hidden ${collapsed ? "gap-2 p-2" : "gap-0.5 p-3"}`}>
-          {groups.map((group) => (
-            <div key={group.title} className={collapsed ? "space-y-2" : "space-y-1"}>
-              {!collapsed && group.title && (
-                <p className={`mx-1 mt-3 mb-1 rounded-lg px-2 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${GROUP_COLORS[group.title] ?? "bg-gray-100 text-gray-400"}`}>
-                  {group.title}
-                </p>
-              )}
-              {group.links.map((item) => {
-                if (isSubmenu(item)) {
-                  const ParentIcon = item.icon;
-                  const isOpen = openSubmenus[item.label] ?? false;
-                  const hasActiveChild = item.children.some((c) => location.pathname === c.path);
-
-                  if (collapsed) {
-                    return (
-                      <button
-                        key={item.label}
-                        title={item.label}
-                        className={`w-full flex h-11 items-center justify-center px-0 rounded-xl border-none text-sm font-medium transition-colors ${
-                          hasActiveChild ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-                        }`}
-                      >
-                        <ParentIcon size={17} className={hasActiveChild ? "text-indigo-600" : "text-gray-400"} />
-                      </button>
-                    );
-                  }
-
-                  return (
-                    <div key={item.label}>
-                      <button
-                        onClick={() => setOpenSubmenus((prev) => ({ ...prev, [item.label]: !isOpen }))}
-                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-xl border-none text-sm font-medium transition-colors ${
-                          hasActiveChild ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-                        }`}
-                      >
-                        <ParentIcon size={17} className={hasActiveChild ? "text-indigo-600" : "text-gray-400"} />
-                        <span className="flex-1">{item.label}</span>
-                        <ChevronDown size={14} className={`text-gray-400 transition-transform ${isOpen || hasActiveChild ? "rotate-180" : ""}`} />
-                      </button>
-                      {(isOpen || hasActiveChild) && (
-                        <div className="ml-4 mt-0.5 space-y-0.5">
-                          {item.children.map((child) => {
-                            const childActive = location.pathname === child.path;
-                            const ChildIcon = child.icon;
-                            return (
-                              <button
-                                key={child.path}
-                                onClick={() => { nav(child.path, { preventScrollReset: true }); setSidebarOpen(false); }}
-                                className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-xl border-none text-sm font-medium transition-colors ${
-                                  childActive ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-                                }`}
-                              >
-                                <ChildIcon size={15} className={childActive ? "text-indigo-600" : "text-gray-400"} />
-                                {child.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-
-                const { label, path, icon: Icon } = item;
-                const active = location.pathname === path;
-                return (
-                  <button
-                    key={path}
-                    onClick={() => {
-                      nav(path, { preventScrollReset: true });
-                      setSidebarOpen(false);
-                    }}
-                    title={collapsed ? label : undefined}
-                    className={`w-full rounded-xl border-none text-sm font-medium transition-colors ${
-                      collapsed
-                        ? `flex h-11 items-center justify-center px-0 ${
-                            active ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-                          }`
-                        : `flex items-center gap-3 px-3 py-2.5 text-left ${
-                            active ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-                          }`
-                    }`}
-                  >
-                    <Icon size={17} className={active ? "text-indigo-600" : "text-gray-400"} />
-                    {!collapsed && label}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
-        </nav>
-
-        <div className="shrink-0 border-t border-gray-100 p-3">
-          <div className={`flex px-2 py-2 ${collapsed ? "flex-col items-center gap-2" : "items-center gap-2.5"}`}>
-            {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.name} className="h-8 w-8 shrink-0 rounded-full object-cover" />
-            ) : (
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100">
-                <span className="text-xs font-bold text-indigo-700">{initials}</span>
-              </div>
-            )}
-
-            {!collapsed && (
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold leading-tight text-gray-900">{user?.name ?? "Usuario"}</p>
-                <p className="mt-0.5 text-[11px] leading-tight text-gray-400">
-                  {user?.role === "MASTER_ADMIN" ? "Master Admin" : user?.role === "ADMIN" ? "Administrador" : user?.role === "PORTEIRO" ? "Portaria" : "Morador"}
-                </p>
-              </div>
-            )}
-
-            <div className="relative shrink-0">
-              <button
-                onClick={() => setGearOpen((value) => !value)}
-                title="Configuracoes"
-                className="rounded-lg bg-transparent p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-700"
-              >
-                <Settings size={16} />
-              </button>
-
-              {gearOpen && (
-                <>
-                  <div className="fixed inset-0 z-199" onClick={() => setGearOpen(false)} />
-                  <div className={`absolute z-200 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl ${collapsed ? "bottom-0 left-full ml-2 w-52" : "bottom-full right-0 mb-2 w-52"}`}>
-                    <button
-                      onClick={() => {
-                        setGearOpen(false);
-                        nav("/perfil");
-                      }}
-                      className="flex w-full items-center gap-2.5 bg-transparent px-3 py-2.5 text-left text-sm text-gray-600 transition-colors hover:bg-gray-100"
-                    >
-                      <User size={15} className="text-gray-400" />
-                      Alterar dados pessoais
-                    </button>
-                    <button
-                      onClick={() => {
-                        toggleDark();
-                        setGearOpen(false);
-                      }}
-                      className="flex w-full items-center gap-2.5 bg-transparent px-3 py-2.5 text-left text-sm text-gray-600 transition-colors hover:bg-gray-100"
-                    >
-                      {dark ? <Sun size={15} className="text-amber-400" /> : <Moon size={15} className="text-gray-400" />}
-                      {dark ? "Modo claro" : "Modo escuro"}
-                    </button>
-                    <div className="my-1 border-t border-gray-100" />
-                    <button
-                      onClick={sair}
-                      className="flex w-full items-center gap-2.5 bg-transparent px-3 py-2.5 text-left text-sm text-rose-600 transition-colors hover:bg-rose-50"
-                    >
-                      <LogOut size={15} className="text-rose-500" />
-                      Sair
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
+  const sidebarProps = {
+    collapsed: sidebarCollapsed,
+    condName,
+    condPlan,
+    groups,
+    openSubmenus,
+    setOpenSubmenus,
+    user,
+    initials,
+    dark,
+    gearOpen,
+    setGearOpen,
+    toggleDark,
+    sair,
+    nav,
+    location,
+    onCollapse: () => setSidebarCollapsed((v) => !v),
+    onCloseMobile: () => setSidebarOpen(false),
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
@@ -438,7 +427,7 @@ export default function AppLayout({ title, children }: { title: string; children
           sidebarCollapsed ? "w-20" : "w-60"
         }`}
       >
-        {renderSidebar()}
+        <SidebarContent {...sidebarProps} mobile={false} />
       </aside>
 
       {sidebarOpen && <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setSidebarOpen(false)} />}
@@ -448,7 +437,7 @@ export default function AppLayout({ title, children }: { title: string; children
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {renderSidebar(true)}
+        <SidebarContent {...sidebarProps} mobile={true} />
       </aside>
 
       {bellOpen && (
