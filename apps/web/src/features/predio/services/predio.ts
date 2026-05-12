@@ -375,18 +375,19 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
   const admin = getSupabaseAdmin();
   const condominioUUID = getUser()?.condominioUUID ?? null;
 
-  function applyCondFilter<T extends ReturnType<typeof admin.from>>(q: T): T {
-    return (condominioUUID ? (q as any).eq("condominio_id", condominioUUID) : q) as T;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function applyCondFilter(q: any): any {
+    return condominioUUID ? q.eq("condominio_id", condominioUUID) : q;
   }
 
-  const base = admin
-    .from("condo_apartments")
-    .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, phone, car_plate, pets_count, resident_type, status)")
-    .order("tower")
-    .order("level", { ascending: false })
-    .order("number");
-
-  const extended = await applyCondFilter(base);
+  const extended = await applyCondFilter(
+    admin
+      .from("condo_apartments")
+      .select("id, tower, level, number, resident_id, resident:profiles!condo_apartments_resident_id_fkey(id, name, email, phone, car_plate, pets_count, resident_type, status)")
+      .order("tower")
+      .order("level", { ascending: false })
+      .order("number"),
+  );
 
   if (!extended.error) {
     return rowsToFloors((extended.data ?? []) as CondoApartmentRow[]);
@@ -711,12 +712,14 @@ export async function createBlock(input: CreateBlockInput): Promise<void> {
 
   try {
     const admin = getSupabaseAdmin();
+    const condominioUUID = getUser()?.condominioUUID ?? null;
     const { error } = await admin.from("condo_apartments").insert(
       rows.map((row) => ({
         tower: row.tower,
         level: row.level,
         number: row.number,
         resident_id: null,
+        ...(condominioUUID ? { condominio_id: condominioUUID } : {}),
       })) as never,
     );
 
@@ -741,9 +744,10 @@ export async function createApartment(input: CreateApartmentInput): Promise<void
 
   try {
     const admin = getSupabaseAdmin();
+    const condominioUUID = getUser()?.condominioUUID ?? null;
     const { error } = await admin
       .from("condo_apartments")
-      .insert([{ tower, level: floor, number, resident_id: null }] as never);
+      .insert([{ tower, level: floor, number, resident_id: null, ...(condominioUUID ? { condominio_id: condominioUUID } : {}) }] as never);
 
     if (error) throw error;
   } catch {
