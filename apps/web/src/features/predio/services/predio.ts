@@ -395,7 +395,7 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
   const withJunction = await applyCondFilter(
     admin
       .from("condo_apartments")
-      .select("id, tower, level, number, resident_id, apt_residents:condo_apartment_residents(user_id, profile:profiles(id, name, email, phone, car_plate, pets_count, resident_type, status))")
+      .select("id, tower, level, number, resident_id, apt_residents:condo_apartment_residents(user_id, profile:profiles!user_id(id, name, email, phone, car_plate, pets_count, resident_type, status))")
       .order("tower")
       .order("level", { ascending: false })
       .order("number"),
