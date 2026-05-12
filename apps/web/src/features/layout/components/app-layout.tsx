@@ -6,6 +6,7 @@ import {
   CalendarDays,
   CarFront,
   CheckCheck,
+  ChevronDown,
   ChevronsLeft,
   ChevronsRight,
   CircleDollarSign,
@@ -25,6 +26,7 @@ import {
   UserRoundCheck,
   Users,
   BarChart2,
+  Wallet,
   Waves,
   X,
 } from "lucide-react";
@@ -39,7 +41,13 @@ import { useNotifications } from "../hooks/use-notifications";
 const SIDEBAR_STORAGE_KEY = "omni:sidebar-collapsed";
 
 type NavLink = { label: string; path: string; icon: React.ElementType };
-type NavGroup = { title: string; links: NavLink[] };
+type NavSubmenu = { label: string; icon: React.ElementType; children: NavLink[] };
+type NavItem = NavLink | NavSubmenu;
+type NavGroup = { title: string; links: NavItem[] };
+
+function isSubmenu(item: NavItem): item is NavSubmenu {
+  return "children" in item;
+}
 
 const GROUP_COLORS: Record<string, string> = {
   "Comunicação":  "bg-sky-50    text-sky-500",
@@ -88,12 +96,18 @@ function buildGroups(role: string | undefined, plan: PlanId): NavGroup[] {
   groups.push({ title: "Operações", links: operacoesLinks });
 
   if (role === "ADMIN" || role === "MASTER_ADMIN") {
-    const gestaoLinks: NavLink[] = [
+    const gestaoLinks: NavItem[] = [
       { label: "Edifício", path: "/predio", icon: Building2 },
       { label: "Moradores", path: "/usuarios", icon: Users },
     ];
     if (hasFeature(plan, "financeiro")) {
-      gestaoLinks.push({ label: "Financeiro", path: "/financeiro", icon: CircleDollarSign });
+      const finChildren: NavLink[] = [
+        { label: "Geral", path: "/financeiro", icon: CircleDollarSign },
+      ];
+      if (role === "ADMIN" || role === "MASTER_ADMIN") {
+        finChildren.push({ label: "Contas", path: "/financeiro/contas", icon: Wallet });
+      }
+      gestaoLinks.push({ label: "Financeiro", icon: CircleDollarSign, children: finChildren });
     }
     if (hasFeature(plan, "relatoriosFinanceiros")) {
       gestaoLinks.push({ label: "Relatórios", path: "/relatorios", icon: BarChart2 });
@@ -141,6 +155,7 @@ export default function AppLayout({ title, children }: { title: string; children
   const { notifs, bellOpen, setBellOpen, bellPos, bellRef, unread, openBell, handleMarcarLida, handleMarcarTodas } = useNotifications();
   const { dark, toggleDark } = useDarkMode();
   const [gearOpen, setGearOpen] = useState(false);
+  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -245,7 +260,63 @@ export default function AppLayout({ title, children }: { title: string; children
                   {group.title}
                 </p>
               )}
-              {group.links.map(({ label, path, icon: Icon }) => {
+              {group.links.map((item) => {
+                if (isSubmenu(item)) {
+                  const ParentIcon = item.icon;
+                  const isOpen = openSubmenus[item.label] ?? false;
+                  const hasActiveChild = item.children.some((c) => location.pathname === c.path);
+
+                  if (collapsed) {
+                    return (
+                      <button
+                        key={item.label}
+                        title={item.label}
+                        className={`w-full flex h-11 items-center justify-center px-0 rounded-xl border-none text-sm font-medium transition-colors ${
+                          hasActiveChild ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                        }`}
+                      >
+                        <ParentIcon size={17} className={hasActiveChild ? "text-indigo-600" : "text-gray-400"} />
+                      </button>
+                    );
+                  }
+
+                  return (
+                    <div key={item.label}>
+                      <button
+                        onClick={() => setOpenSubmenus((prev) => ({ ...prev, [item.label]: !isOpen }))}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-left rounded-xl border-none text-sm font-medium transition-colors ${
+                          hasActiveChild ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                        }`}
+                      >
+                        <ParentIcon size={17} className={hasActiveChild ? "text-indigo-600" : "text-gray-400"} />
+                        <span className="flex-1">{item.label}</span>
+                        <ChevronDown size={14} className={`text-gray-400 transition-transform ${isOpen || hasActiveChild ? "rotate-180" : ""}`} />
+                      </button>
+                      {(isOpen || hasActiveChild) && (
+                        <div className="ml-4 mt-0.5 space-y-0.5">
+                          {item.children.map((child) => {
+                            const childActive = location.pathname === child.path;
+                            const ChildIcon = child.icon;
+                            return (
+                              <button
+                                key={child.path}
+                                onClick={() => { nav(child.path); setSidebarOpen(false); }}
+                                className={`w-full flex items-center gap-3 px-3 py-2 text-left rounded-xl border-none text-sm font-medium transition-colors ${
+                                  childActive ? "bg-indigo-50 text-indigo-700" : "bg-transparent text-gray-500 hover:bg-gray-100 hover:text-gray-800"
+                                }`}
+                              >
+                                <ChildIcon size={15} className={childActive ? "text-indigo-600" : "text-gray-400"} />
+                                {child.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                const { label, path, icon: Icon } = item;
                 const active = location.pathname === path;
                 return (
                   <button

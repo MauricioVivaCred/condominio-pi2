@@ -23,7 +23,8 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   "/garagem":     { allowedRoles: ["ADMIN", "MORADOR", "PORTEIRO"] },
   "/visitantes":  { allowedRoles: ["ADMIN", "MORADOR", "PORTEIRO"] },
   "/encomendas":  { allowedRoles: ["ADMIN", "MORADOR", "PORTEIRO"] },
-  "/financeiro":  { allowedRoles: ["ADMIN", "MORADOR"], requiresPlan: "financeiro" },
+  "/financeiro":         { allowedRoles: ["ADMIN", "MORADOR"], requiresPlan: "financeiro" },
+  "/financeiro/contas":  { allowedRoles: ["ADMIN"], requiresPlan: "financeiro" },
   "/relatorios":  { allowedRoles: ["ADMIN"], requiresPlan: "relatoriosFinanceiros" },
   "/manutencao":  {},
 
