@@ -1,5 +1,5 @@
 import {
-  Filter, Pencil, Plus, Search, ShieldOff, ShieldCheck, Users, X,
+  Filter, Pencil, Plus, Search, ShieldOff, ShieldCheck, Users, X, MailCheck, Loader2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -9,7 +9,7 @@ import { getPlanLimits, PLAN_LABELS, type PlanId } from "../../config/plans";
 import { supabase } from "../../lib/supabase";
 import { fmtDate } from "../../lib/format";
 import {
-  inviteUser, listUsers, listCondominiosBasic, setUserRemoved, updateUserRecord,
+  inviteUser, listUsers, listCondominiosBasic, resendInvite, setUserRemoved, updateUserRecord,
   type CondominioBrief, type InviteUserPayload, type UpdateUserPayload, type UserRecord,
 } from "../../features/dashboard/services/users";
 import { listBuildingApartmentOptions, type BuildingApartmentOption } from "../../features/predio/services/predio";
@@ -58,6 +58,7 @@ export default function UsuariosPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+  const [resendingId, setResendingId] = useState<string | null>(null);
   const [selectedTower, setSelectedTower] = useState("");
 
   const [inviteForm, setInviteForm] = useState<InviteUserPayload>({
@@ -294,6 +295,18 @@ export default function UsuariosPage() {
     }
   }
 
+  async function handleResendInvite(u: UserRecord) {
+    setResendingId(u.id);
+    try {
+      await resendInvite(u.email);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao reenviar convite.");
+    } finally {
+      setResendingId(null);
+    }
+  }
+
   // ── Apartment selects ──────────────────────────────────────────────────────
   const towerOptions = useMemo(
     () => Array.from(new Set(apartmentOptions.map((a) => a.tower))).sort((a, b) => a.localeCompare(b)),
@@ -443,6 +456,13 @@ export default function UsuariosPage() {
                               className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-600 text-gray-400 cursor-pointer transition-colors">
                               <Pencil size={14} />
                             </button>
+                            {!u.name && (
+                              <button onClick={() => void handleResendInvite(u)} title="Reenviar convite"
+                                disabled={resendingId === u.id}
+                                className="p-1.5 rounded-lg border border-amber-200 bg-amber-50 text-amber-600 hover:bg-amber-100 disabled:opacity-50 cursor-pointer transition-colors">
+                                {resendingId === u.id ? <Loader2 size={14} className="animate-spin" /> : <MailCheck size={14} />}
+                              </button>
+                            )}
                             <button onClick={() => void handleToggleRemoved(u)}
                               title={u.removed ? "Habilitar" : "Desabilitar"}
                               className={`p-1.5 rounded-lg border cursor-pointer transition-colors ${u.removed ? "border-emerald-200 bg-emerald-50 text-emerald-600 hover:bg-emerald-100" : "border-rose-200 bg-white text-rose-400 hover:bg-rose-50 hover:text-rose-600"}`}>
@@ -493,6 +513,13 @@ export default function UsuariosPage() {
                 {isAdmin && (
                   <div className="flex gap-2">
                     <button onClick={() => openEdit(u)} className="flex-1 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:border-indigo-200 hover:text-indigo-600 cursor-pointer transition-colors">Editar</button>
+                    {!u.name && (
+                      <button onClick={() => void handleResendInvite(u)} disabled={resendingId === u.id}
+                        className="flex-1 py-1.5 rounded-lg border border-amber-200 text-xs font-semibold text-amber-600 hover:bg-amber-50 disabled:opacity-50 cursor-pointer transition-colors flex items-center justify-center gap-1">
+                        {resendingId === u.id ? <Loader2 size={12} className="animate-spin" /> : <MailCheck size={12} />}
+                        Reenviar
+                      </button>
+                    )}
                     <button onClick={() => void handleToggleRemoved(u)}
                       className={`flex-1 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${u.removed ? "border-emerald-200 text-emerald-600 hover:bg-emerald-50" : "border-rose-200 text-rose-500 hover:bg-rose-50"}`}>
                       {u.removed ? "Habilitar" : "Desabilitar"}

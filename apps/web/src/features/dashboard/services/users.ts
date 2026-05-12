@@ -598,6 +598,20 @@ export async function inviteUser(payload: InviteUserPayload): Promise<void> {
   }
 }
 
+export async function resendInvite(email: string): Promise<void> {
+  const admin = getSupabaseAdmin();
+  const appUrl = import.meta.env.VITE_APP_URL ?? window.location.origin;
+
+  const { error } = await admin.auth.admin.inviteUserByEmail(email, {
+    redirectTo: `${appUrl}/completar-perfil`,
+  });
+
+  // Supabase retorna erro "already registered" se o usuário já confirmou — ignorar
+  if (error && !error.message.toLowerCase().includes("already registered")) {
+    throw new Error(error.message);
+  }
+}
+
 export async function updateUserRecord(payload: UpdateUserPayload): Promise<UserRecord> {
   const admin = getSupabaseAdmin();
 
