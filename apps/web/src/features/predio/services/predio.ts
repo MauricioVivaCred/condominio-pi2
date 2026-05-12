@@ -1,4 +1,4 @@
-import { getSupabaseAdmin, supabase } from "../../../lib/supabase";
+import { getSupabaseAdmin } from "../../../lib/supabase";
 import { getUser } from "../../auth/services/auth";
 
 export type ResidentStatus = "Proprietário" | "Inquilino" | "Vago" | "Visitante";
