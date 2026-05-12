@@ -231,9 +231,11 @@ function rowsToFloors(rows: Array<CondoApartmentRow | CustomApartmentRow>): Floo
     const aptRow = row as CondoApartmentRow;
     let residents: Resident[] = [];
     if (aptRow.apt_residents && aptRow.apt_residents.length > 0) {
-      residents = aptRow.apt_residents
-        .filter((r) => r.profile)
-        .map((r) => profileToResident(r.profile!));
+      residents = aptRow.apt_residents.map((r) =>
+        r.profile
+          ? profileToResident(r.profile)
+          : { id: r.user_id, name: r.user_id, email: "", phone: "", status: "Vago" as const },
+      );
     } else if (aptRow.resident) {
       residents = [profileToResident(aptRow.resident)];
     }
@@ -410,9 +412,6 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
       ? await admin.from("condo_apartment_residents").select("apartment_id, user_id").in("apartment_id", aptIds)
       : { data: [], error: null };
 
-    if (jRes.error) console.warn("[predio] junction rows fetch error:", jRes.error);
-    console.log("[predio] junction rows:", jRes.data?.length ?? 0, "error:", jRes.error?.message);
-
     if (!jRes.error && jRes.data && jRes.data.length > 0) {
       const userIds = [...new Set((jRes.data as Array<{ user_id: string }>).map((r) => r.user_id))];
       const profilesRes = await admin
@@ -420,7 +419,6 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
         .select("id, name, email, phone, car_plate, pets_count, resident_type, status")
         .in("id", userIds);
 
-      console.log("[predio] profiles fetched:", profilesRes.data?.length ?? 0, "error:", profilesRes.error?.message);
       const profileMap = new Map<string, ProfileRow>(
         ((profilesRes.data ?? []) as ProfileRow[]).map((p) => [p.id, p]),
       );
