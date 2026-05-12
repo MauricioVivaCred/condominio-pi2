@@ -15,6 +15,7 @@ import EncomendasPage from "../pages/encomendas/index.tsx";
 import FinanceiroPage from "../pages/financeiro/index.tsx";
 import ContasPage from "../pages/financeiro/contas/index.tsx";
 import FornecedoresPage from "../pages/financeiro/fornecedores/index.tsx";
+import BalancetePage from "../pages/financeiro/balancete/index.tsx";
 import GaragemPage from "../pages/garagem/index.tsx";
 import MaresiaPage from "../pages/maresia/index.tsx";
 import Perfil from "../pages/perfil/index.tsx";
@@ -50,6 +51,7 @@ export default function AppRoutes() {
         <Route path="/financeiro"         element={<ProtectedRoute path="/financeiro"><FinanceiroPage /></ProtectedRoute>} />
         <Route path="/financeiro/contas"       element={<ProtectedRoute path="/financeiro/contas"><ContasPage /></ProtectedRoute>} />
         <Route path="/financeiro/fornecedores" element={<ProtectedRoute path="/financeiro/fornecedores"><FornecedoresPage /></ProtectedRoute>} />
+        <Route path="/financeiro/balancete"    element={<ProtectedRoute path="/financeiro/balancete"><BalancetePage /></ProtectedRoute>} />
         <Route path="/garagem"      element={<ProtectedRoute path="/garagem"><GaragemPage /></ProtectedRoute>} />
         <Route path="/perfil"       element={<ProtectedRoute path="/perfil"><Perfil /></ProtectedRoute>} />
         <Route path="/predio"       element={<ProtectedRoute path="/predio"><MapaPredio /></ProtectedRoute>} />

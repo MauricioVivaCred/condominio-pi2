@@ -26,6 +26,7 @@ import {
   UserRoundCheck,
   Users,
   BarChart2,
+  FileText,
   Truck,
   Wallet,
   Waves,
@@ -112,6 +113,7 @@ function buildGroups(role: string | undefined, plan: PlanId): NavGroup[] {
         { label: "Geral", path: "/financeiro", icon: CircleDollarSign },
         { label: "Contas", path: "/financeiro/contas", icon: Wallet },
         { label: "Fornecedores", path: "/financeiro/fornecedores", icon: Truck },
+        { label: "Balancete", path: "/financeiro/balancete", icon: FileText },
       ];
       groups.push({ title: "Financeiro", links: finLinks });
     }
