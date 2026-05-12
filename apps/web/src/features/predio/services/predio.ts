@@ -410,6 +410,9 @@ async function fetchBuildingFromSupabase(): Promise<Floor[]> {
       ? await admin.from("condo_apartment_residents").select("apartment_id, user_id").in("apartment_id", aptIds)
       : { data: [], error: null };
 
+    if (jRes.error) console.warn("[predio] junction rows fetch error:", jRes.error);
+    console.log("[predio] junction rows:", jRes.data?.length ?? 0, "error:", jRes.error?.message);
+
     if (!jRes.error && jRes.data && jRes.data.length > 0) {
       const userIds = [...new Set((jRes.data as Array<{ user_id: string }>).map((r) => r.user_id))];
       const profilesRes = await admin
