@@ -108,8 +108,9 @@ function buildGroups(role: string | undefined, plan: PlanId): NavGroup[] {
 
   if (role === "ADMIN" || role === "MASTER_ADMIN") {
     const gestaoLinks: NavLink[] = [
-      { label: "Edifício", path: "/predio", icon: Building2 },
-      { label: "Moradores", path: "/usuarios", icon: Users },
+      { label: "Edifício",     path: "/predio",       icon: Building2 },
+      { label: "Moradores",    path: "/usuarios",      icon: Users },
+      { label: "Áreas Comuns", path: "/areas-comuns", icon: CalendarDays },
     ];
     if (hasFeature(plan, "relatoriosFinanceiros")) {
       gestaoLinks.push({ label: "Relatórios", path: "/relatorios", icon: BarChart2 });

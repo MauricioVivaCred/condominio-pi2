@@ -8,6 +8,7 @@ import Dashboard from "../pages/dashboard/index.tsx";
 import ListaAvisos from "../pages/avisos/lista-avisos.tsx";
 import ListaOcorrencias from "../pages/ocorrencias/lista-ocorrencias.tsx";
 import MapaPredio from "../pages/predio/mapa-predio";
+import AreasComuns from "../pages/areas-comuns/index.tsx";
 import ChatPage from "../pages/chat/index.tsx";
 import Agendamentos from "../pages/agendamentos/index.tsx";
 import NovoAgendamento from "../pages/agendamentos/novo/index.tsx";
@@ -56,7 +57,8 @@ export default function AppRoutes() {
         <Route path="/financeiro/balancete"    element={<ProtectedRoute path="/financeiro/balancete"><BalancetePage /></ProtectedRoute>} />
         <Route path="/garagem"      element={<ProtectedRoute path="/garagem"><GaragemPage /></ProtectedRoute>} />
         <Route path="/perfil"       element={<ProtectedRoute path="/perfil"><Perfil /></ProtectedRoute>} />
-        <Route path="/predio"       element={<ProtectedRoute path="/predio"><MapaPredio /></ProtectedRoute>} />
+        <Route path="/predio"        element={<ProtectedRoute path="/predio"><MapaPredio /></ProtectedRoute>} />
+        <Route path="/areas-comuns"  element={<ProtectedRoute path="/areas-comuns"><AreasComuns /></ProtectedRoute>} />
         <Route path="/usuarios"     element={<ProtectedRoute path="/usuarios"><UsuariosPage /></ProtectedRoute>} />
         <Route path="/manutencao"   element={<ProtectedRoute path="/manutencao"><MaresiaPage /></ProtectedRoute>} />
         <Route path="/condominios"  element={<ProtectedRoute path="/condominios"><CondominiosPage /></ProtectedRoute>} />

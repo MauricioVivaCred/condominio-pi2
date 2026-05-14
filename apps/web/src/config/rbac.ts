@@ -29,7 +29,8 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   "/relatorios":  { allowedRoles: ["ADMIN"], requiresPlan: "relatoriosFinanceiros" },
   "/manutencao":  {},
 
-  "/predio":      { allowedRoles: ["ADMIN", "MASTER_ADMIN"] },
+  "/predio":        { allowedRoles: ["ADMIN", "MASTER_ADMIN"] },
+  "/areas-comuns":  { allowedRoles: ["ADMIN", "MASTER_ADMIN"] },
   "/usuarios":    { allowedRoles: ["ADMIN", "MORADOR", "MASTER_ADMIN"] },
 
   "/condominios": { allowedRoles: ["MASTER_ADMIN"] },
