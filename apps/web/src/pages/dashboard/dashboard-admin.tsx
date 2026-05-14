@@ -209,8 +209,9 @@ export default function DashboardAdmin() {
           0%   { transform: translateX(0); }
           100% { transform: translateX(-50%); }
         }
-        .kpi-track { animation: kpi-scroll 28s linear infinite; }
+        .kpi-track { display: flex; animation: kpi-scroll 28s linear infinite; }
         .kpi-track:hover { animation-play-state: paused; }
+        .kpi-group { display: flex; gap: 1rem; padding-right: 1rem; }
       `}</style>
       <div className="grid gap-5">
 
@@ -248,26 +249,30 @@ export default function DashboardAdmin() {
 
           {/* KPI esteira */}
           <div className="flex-1 min-w-0 overflow-hidden">
-            <div className="kpi-track flex gap-4" style={{ width: "max-content" }}>
-              {[...kpis, ...kpis].map((k, i) => {
-                const Icon = k.icon;
-                return (
-                  <div key={i}
-                    className={`w-52 shrink-0 bg-gradient-to-br ${k.gradient} border ${k.border} rounded-2xl p-4 shadow-sm cursor-default`}>
-                    <div className="flex items-start justify-between gap-2">
-                      <div className={`w-9 h-9 rounded-xl ${k.iconBg} flex items-center justify-center shrink-0`}>
-                        <Icon size={18} className={k.iconColor} />
+            <div className="kpi-track" style={{ width: "max-content" }}>
+              {[0, 1].map((g) => (
+                <div key={g} className="kpi-group">
+                  {kpis.map((k, i) => {
+                    const Icon = k.icon;
+                    return (
+                      <div key={i}
+                        className={`w-52 shrink-0 bg-gradient-to-br ${k.gradient} border ${k.border} rounded-2xl p-4 shadow-sm cursor-default`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className={`w-9 h-9 rounded-xl ${k.iconBg} flex items-center justify-center shrink-0`}>
+                            <Icon size={18} className={k.iconColor} />
+                          </div>
+                          <span className="text-[10px] text-gray-400 border border-gray-200 bg-white px-2 py-0.5 rounded-full whitespace-nowrap">
+                            {k.badge}
+                          </span>
+                        </div>
+                        <div className="mt-3 text-[28px] font-extrabold tracking-tight text-gray-900 leading-none">{k.kpi}</div>
+                        <p className="mt-1 text-xs font-semibold text-gray-700">{k.title}</p>
+                        <p className="mt-0.5 text-[11px] text-gray-400">{k.foot}</p>
                       </div>
-                      <span className="text-[10px] text-gray-400 border border-gray-200 bg-white px-2 py-0.5 rounded-full whitespace-nowrap">
-                        {k.badge}
-                      </span>
-                    </div>
-                    <div className="mt-3 text-[28px] font-extrabold tracking-tight text-gray-900 leading-none">{k.kpi}</div>
-                    <p className="mt-1 text-xs font-semibold text-gray-700">{k.title}</p>
-                    <p className="mt-0.5 text-[11px] text-gray-400">{k.foot}</p>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </div>
         </section>
