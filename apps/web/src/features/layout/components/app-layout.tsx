@@ -113,7 +113,7 @@ function buildGroups(role: string | undefined, plan: PlanId): NavGroup[] {
         icon: Building2,
         children: [
           { label: "Mapa do edifício", path: "/predio", icon: Building2 },
-          { label: "Documentos", path: "/predio/documentos", icon: FileText },
+          ...(role === "ADMIN" ? [{ label: "Documentos", path: "/predio/documentos", icon: FileText }] : []),
         ],
       },
       { label: "Moradores", path: "/usuarios", icon: Users },

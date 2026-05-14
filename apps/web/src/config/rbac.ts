@@ -30,8 +30,8 @@ export const ROUTE_PERMISSIONS: Record<string, RoutePermission> = {
   "/manutencao":  {},
 
   "/predio":                 { allowedRoles: ["ADMIN", "MASTER_ADMIN"] },
-  "/predio/documentos":      { allowedRoles: ["ADMIN", "MASTER_ADMIN"] },
-  "/predio/documentos/novo": { allowedRoles: ["ADMIN", "MASTER_ADMIN"] },
+  "/predio/documentos":      { allowedRoles: ["ADMIN"] },
+  "/predio/documentos/novo": { allowedRoles: ["ADMIN"] },
   "/areas-comuns":  { allowedRoles: ["ADMIN"] },
   "/usuarios":    { allowedRoles: ["ADMIN", "MORADOR", "MASTER_ADMIN"] },
 
