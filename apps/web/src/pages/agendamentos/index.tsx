@@ -1,10 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarCheck, ChevronLeft, ChevronRight, Droplet, Users, X } from "lucide-react";
+import { CalendarCheck, CalendarDays, ChevronLeft, ChevronRight, Droplet, Users } from "lucide-react";
 import AppLayout from "../../features/layout/components/app-layout";
 import { getUser } from "../../features/auth/services/auth";
 import {
-  cancelResourceBooking,
-  createResourceBooking,
   listResourceBookings,
   subscribeToResourceBookings,
   type ResourceBooking,
@@ -13,540 +11,318 @@ import {
 type Resource = {
   id: string;
   label: string;
-  shortLabel: string;
-  description: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
 };
 
 const RESOURCES: Resource[] = [
-  {
-    id: "salao",
-    label: "Salao de festas",
-    shortLabel: "Salao",
-    description: "Ideal para aniversarios e confraternizacoes.",
-    icon: Users,
-  },
-  {
-    id: "piscina",
-    label: "Piscina",
-    shortLabel: "Piscina",
-    description: "Agende o dia para uso da piscina.",
-    icon: Droplet,
-  },
-  {
-    id: "reuniao",
-    label: "Sala de reunioes",
-    shortLabel: "Reunioes",
-    description: "Use para encontros e reunioes do condominio.",
-    icon: CalendarCheck,
-  },
+  { id: "salao",   label: "Salão de Festas",   icon: Users },
+  { id: "piscina", label: "Piscina",            icon: Droplet },
+  { id: "reuniao", label: "Sala de Reuniões",   icon: CalendarCheck },
 ];
 
-const WEEK_DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sab"];
-const inputClass = "mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100";
-const labelClass = "text-xs font-semibold uppercase tracking-[0.16em] text-slate-500";
+const WEEK_DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const MONTHS_PT = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+];
 
-function pad(value: number) {
-  return String(value).padStart(2, "0");
-}
+function pad(v: number) { return String(v).padStart(2, "0"); }
+function toKey(d: Date) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function startOfDay(d: Date) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function startOfMonth(d: Date) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function addMonths(d: Date, n: number) { return new Date(d.getFullYear(), d.getMonth() + n, 1); }
+function isSameMonth(a: Date, b: Date) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth(); }
 
-function toDateInputValue(date: Date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-function startOfMonth(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
-}
-
-function addMonths(date: Date, amount: number) {
-  return new Date(date.getFullYear(), date.getMonth() + amount, 1);
-}
-
-function startOfDay(date: Date) {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
-}
-
-function isSameMonth(left: Date, right: Date) {
-  return left.getFullYear() === right.getFullYear() && left.getMonth() === right.getMonth();
-}
-
-function buildMonthGrid(month: Date) {
-  const firstDay = startOfMonth(month);
-  const gridStart = new Date(firstDay);
-  gridStart.setDate(firstDay.getDate() - firstDay.getDay());
-
-  return Array.from({ length: 42 }, (_, index) => {
-    const date = new Date(gridStart);
-    date.setDate(gridStart.getDate() + index);
-    return date;
+function buildGrid(month: Date) {
+  const first = startOfMonth(month);
+  const start = new Date(first);
+  start.setDate(first.getDate() - first.getDay());
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
   });
 }
 
-function formatMonthTitle(date: Date) {
-  return new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(date);
+function fmtMonthYear(d: Date) {
+  return `${MONTHS_PT[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-function formatFullDate(dateValue: string) {
-  return new Date(`${dateValue}T12:00:00`).toLocaleDateString("pt-BR", {
-    weekday: "long",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+function fmtDateCard(dateStr: string) {
+  const d = new Date(`${dateStr}T12:00:00`);
+  return d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
 }
 
-function bookingSort(a: ResourceBooking, b: ResourceBooking) {
-  if (a.date !== b.date) return a.date.localeCompare(b.date);
-  return a.time.localeCompare(b.time);
-}
-
-function DayModal({
-  open,
-  onClose,
-  date,
-  resource,
-  booking,
-  currentUserId,
-  time,
-  setTime,
-  duration,
-  setDuration,
-  note,
-  setNote,
-  saving,
-  onBook,
-  onCancel,
-}: {
-  open: boolean;
-  onClose: () => void;
-  date: string;
-  resource: Resource;
-  booking: ResourceBooking | null;
-  currentUserId?: string;
-  time: string;
-  setTime: (value: string) => void;
-  duration: string;
-  setDuration: (value: string) => void;
-  note: string;
-  setNote: (value: string) => void;
-  saving: boolean;
-  onBook: () => Promise<void>;
-  onCancel: (id: string) => Promise<void>;
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[1050] flex items-center justify-center bg-slate-950/50 p-4">
-      <div className="flex max-h-[92vh] w-full max-w-xl flex-col overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-indigo-600">{resource.label}</p>
-            <h3 className="mt-2 text-xl font-semibold capitalize text-slate-950">{formatFullDate(date)}</h3>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-2xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="overflow-y-auto px-6 py-5">
-          {booking ? (
-            <div className="rounded-[28px] border border-amber-200 bg-amber-50 p-5">
-              <p className="text-sm font-semibold text-amber-900">Este dia ja esta reservado</p>
-              <p className="mt-2 text-sm leading-6 text-amber-800">
-                <strong>{booking.authorName}</strong> reservou para {booking.time} ({booking.duration}).
-              </p>
-              {booking.note && <p className="mt-3 break-words text-xs leading-5 text-amber-700">{booking.note}</p>}
-              {booking.userId === currentUserId && (
-                <button
-                  type="button"
-                  onClick={() => void onCancel(booking.id)}
-                  disabled={saving}
-                  className="mt-4 rounded-2xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
-                >
-                  Cancelar minha reserva
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="rounded-[28px] border border-emerald-200 bg-emerald-50 p-5">
-                <p className="text-sm font-semibold text-emerald-900">Dia disponivel</p>
-                <p className="mt-2 text-sm leading-6 text-emerald-800">
-                  Preencha os dados abaixo para reservar {resource.label.toLowerCase()}.
-                </p>
-              </div>
-
-              <label className="block">
-                <span className={labelClass}>Hora</span>
-                <input type="time" value={time} onChange={(event) => setTime(event.target.value)} className={inputClass} />
-              </label>
-
-              <label className="block">
-                <span className={labelClass}>Duracao</span>
-                <select value={duration} onChange={(event) => setDuration(event.target.value)} className={inputClass}>
-                  <option value="1h">1 hora</option>
-                  <option value="2h">2 horas</option>
-                  <option value="3h">3 horas</option>
-                </select>
-              </label>
-
-              <label className="block">
-                <span className={labelClass}>Observacoes</span>
-                <textarea
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  rows={4}
-                  className={`${inputClass} resize-none py-3`}
-                  placeholder="Ex.: aniversario, confraternizacao, reuniao do bloco..."
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={() => void onBook()}
-                disabled={!time || saving}
-                className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {saving ? "Salvando..." : "Confirmar agendamento"}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+function resourceLabel(id: string) {
+  return RESOURCES.find(r => r.id === id)?.label ?? id;
 }
 
 export default function Agendamentos() {
   const today = useMemo(() => new Date(), []);
-  const todayStart = useMemo(() => startOfDay(today), [today]);
+  const todayKey = useMemo(() => toKey(today), [today]);
   const currentUser = useMemo(() => getUser(), []);
-  const [selectedResourceId, setSelectedResourceId] = useState(RESOURCES[0].id);
+
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(today));
-  const [selectedDate, setSelectedDate] = useState(toDateInputValue(today));
-  const [modalOpen, setModalOpen] = useState(false);
-  const [time, setTime] = useState("");
-  const [duration, setDuration] = useState("1h");
-  const [note, setNote] = useState("");
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedResource, setSelectedResource] = useState(RESOURCES[0].id);
   const [bookings, setBookings] = useState<ResourceBooking[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
+  const [mobileTab, setMobileTab] = useState<"cal" | "list">("cal");
 
-  async function loadBookings() {
+  async function load() {
     setLoading(true);
-    setError("");
-
-    try {
-      setBookings(await listResourceBookings());
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao carregar agendamentos.");
-    } finally {
-      setLoading(false);
-    }
+    try { setBookings(await listResourceBookings()); }
+    finally { setLoading(false); }
   }
 
   useEffect(() => {
-    void loadBookings();
-    return subscribeToResourceBookings(() => {
-      void loadBookings();
-    });
+    void load();
+    return subscribeToResourceBookings(() => void load());
   }, []);
 
-  const selectedResource = useMemo(
-    () => RESOURCES.find((resource) => resource.id === selectedResourceId) ?? RESOURCES[0],
-    [selectedResourceId],
-  );
-
   const resourceBookings = useMemo(
-    () => bookings.filter((booking) => booking.resourceId === selectedResourceId).sort(bookingSort),
-    [bookings, selectedResourceId],
+    () => bookings.filter(b => b.resourceId === selectedResource),
+    [bookings, selectedResource],
   );
 
-  const bookingsByDate = useMemo(() => {
-    const next = new Map<string, ResourceBooking[]>();
-    for (const booking of resourceBookings) {
-      const current = next.get(booking.date) ?? [];
-      current.push(booking);
-      next.set(booking.date, current);
-    }
-    return next;
+  const byDate = useMemo(() => {
+    const m = new Map<string, ResourceBooking>();
+    for (const b of resourceBookings) m.set(b.date, b);
+    return m;
   }, [resourceBookings]);
 
-  const selectedBooking = (bookingsByDate.get(selectedDate) ?? [])[0] ?? null;
-  const monthDays = useMemo(() => buildMonthGrid(currentMonth), [currentMonth]);
-  const monthPrefix = `${currentMonth.getFullYear()}-${pad(currentMonth.getMonth() + 1)}`;
-  const monthBookings = useMemo(() => resourceBookings.filter((booking) => booking.date.startsWith(monthPrefix)), [monthPrefix, resourceBookings]);
-  const occupiedCount = monthBookings.length;
-  const availableCount = monthDays.filter((day) => {
-    const dayStart = startOfDay(day);
-    return isSameMonth(day, currentMonth) && dayStart.getTime() >= todayStart.getTime() && !bookingsByDate.has(toDateInputValue(day));
-  }).length;
-  const nextBookings = useMemo(() => resourceBookings.slice(0, 4), [resourceBookings]);
-  const canGoToPreviousMonth = useMemo(() => startOfMonth(currentMonth).getTime() > startOfMonth(todayStart).getTime(), [currentMonth, todayStart]);
-
-  function openDay(day: Date) {
-    const key = toDateInputValue(day);
-    const booking = (bookingsByDate.get(key) ?? [])[0] ?? null;
-    const isPastDay = startOfDay(day).getTime() < todayStart.getTime();
-    const lockedByAnotherResident = booking !== null && booking.userId !== currentUser?.id;
-
-    if (isPastDay || lockedByAnotherResident) {
-      return;
+  const listBookings = useMemo(() => {
+    if (selectedDate) {
+      const b = byDate.get(selectedDate);
+      return b ? [b] : [];
     }
+    const todayStart = startOfDay(today).getTime();
+    return resourceBookings
+      .filter(b => new Date(`${b.date}T12:00:00`).getTime() >= todayStart)
+      .slice(0, 50);
+  }, [resourceBookings, byDate, selectedDate, today]);
 
-    setSelectedDate(key);
-    setCurrentMonth(startOfMonth(day));
-    setMessage("");
-    setError("");
-    setModalOpen(true);
+  const grid = useMemo(() => buildGrid(currentMonth), [currentMonth]);
+  const canGoPrev = startOfMonth(currentMonth).getTime() > startOfMonth(today).getTime();
+
+  function selectDay(d: Date) {
+    const key = toKey(d);
+    setSelectedDate(prev => prev === key ? null : key);
   }
 
-  async function handleBook() {
-    if (!selectedDate || !time || selectedBooking) return;
+  // ── Left panel ──────────────────────────────────────────────────────────────
+  function BookingList() {
+    return (
+      <>
+        <div className="shrink-0 px-5 py-4 border-b border-gray-100">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-indigo-500 mb-1">
+            {selectedDate
+              ? new Date(`${selectedDate}T12:00:00`).toLocaleDateString("pt-BR", { weekday:"long", day:"2-digit", month:"long" })
+              : "Próximos agendamentos"}
+          </p>
+          <h3 className="text-base font-bold text-gray-900">Agendamentos</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Não perca os eventos agendados</p>
+        </div>
 
-    setSaving(true);
-    setError("");
-    setMessage("");
+        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          {loading && (
+            <div className="flex justify-center py-10">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-500" />
+            </div>
+          )}
 
-    try {
-      await createResourceBooking({
-        resourceId: selectedResourceId,
-        date: selectedDate,
-        time,
-        duration,
-        note,
-      });
+          {!loading && listBookings.length === 0 && (
+            <div className="flex flex-col items-center gap-2 py-10 text-center">
+              <CalendarDays size={24} className="text-gray-200" />
+              <p className="text-xs text-gray-400">
+                {selectedDate ? "Nenhum agendamento neste dia." : "Nenhum agendamento futuro."}
+              </p>
+            </div>
+          )}
 
-      setTime("");
-      setNote("");
-      setMessage("Reserva criada com sucesso.");
-      setModalOpen(false);
-      await loadBookings();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao criar reserva.");
-    } finally {
-      setSaving(false);
-    }
+          {listBookings.map(b => (
+            <div key={b.id}
+              onClick={() => setSelectedDate(b.date)}
+              className="cursor-pointer rounded-xl border border-gray-100 bg-white p-4 hover:border-indigo-200 hover:bg-indigo-50/30 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-sm font-semibold text-gray-900 leading-tight">{resourceLabel(b.resourceId)}</span>
+                <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-600">
+                  {b.time}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">{b.authorName}</p>
+              <div className="flex items-center gap-1.5 mt-2 text-[11px] text-gray-400">
+                <CalendarDays size={11} />
+                <span>{fmtDateCard(b.date)}</span>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-0.5">{b.duration}</p>
+              {b.note && <p className="mt-2 text-[11px] text-gray-500 line-clamp-2">{b.note}</p>}
+              {b.userId === currentUser?.id && (
+                <span className="mt-2 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
+                  Minha reserva
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </>
+    );
   }
 
-  async function handleCancel(id: string) {
-    setSaving(true);
-    setError("");
-    setMessage("");
-
-    try {
-      await cancelResourceBooking(id);
-      setMessage("Reserva cancelada com sucesso.");
-      setModalOpen(false);
-      await loadBookings();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao cancelar reserva.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <AppLayout title="Agendamentos">
-      <div className="space-y-5">
-        <section className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Ocupados</p>
-            <p className="mt-1 text-2xl font-black text-slate-950">{occupiedCount}</p>
+  // ── Calendar panel ───────────────────────────────────────────────────────────
+  function CalendarPanel() {
+    return (
+      <>
+        {/* Header */}
+        <div className="shrink-0 flex flex-col gap-3 px-5 py-4 border-b border-gray-100 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentMonth(m => addMonths(m, -1))}
+              disabled={!canGoPrev}
+              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 disabled:opacity-30 transition-colors"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="min-w-[160px] text-center text-base font-bold text-gray-900">
+              {fmtMonthYear(currentMonth)}
+            </span>
+            <button
+              onClick={() => setCurrentMonth(m => addMonths(m, 1))}
+              className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 transition-colors"
+            >
+              <ChevronRight size={18} />
+            </button>
+            <button
+              onClick={() => { setCurrentMonth(startOfMonth(today)); setSelectedDate(todayKey); }}
+              className="ml-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600 hover:bg-indigo-100 transition-colors"
+            >
+              Hoje
+            </button>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Livres</p>
-            <p className="mt-1 text-2xl font-black text-slate-950">{availableCount}</p>
-          </div>
-        </section>
 
-        <section className="space-y-4">
-          <div className="flex flex-wrap gap-3">
-            {RESOURCES.map((resource) => {
-              const active = resource.id === selectedResourceId;
-              const Icon = resource.icon;
+          {/* Resource tabs */}
+          <div className="flex gap-1">
+            {RESOURCES.map(r => {
+              const Icon = r.icon;
               return (
                 <button
-                  key={resource.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedResourceId(resource.id);
-                    setMessage("");
-                    setError("");
-                  }}
-                  className={`inline-flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${active ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"}`}
+                  key={r.id}
+                  onClick={() => { setSelectedResource(r.id); setSelectedDate(null); }}
+                  className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    selectedResource === r.id
+                      ? "bg-indigo-600 text-white"
+                      : "text-gray-500 hover:bg-gray-100"
+                  }`}
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm">
-                    <Icon size={18} />
-                  </span>
-                  <span>
-                    <span className="block text-sm font-semibold">{resource.label}</span>
-                    <span className="block text-xs text-slate-500">{resource.description}</span>
-                  </span>
+                  <Icon size={13} />
+                  <span className="hidden sm:inline">{r.label}</span>
                 </button>
               );
             })}
           </div>
+        </div>
 
-          <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <h3 className="text-base font-semibold text-slate-900">{selectedResource.label}</h3>
-                <p className="mt-1 text-sm text-slate-500">Toque em um dia para ver a disponibilidade e reservar.</p>
-              </div>
-              <div className="flex items-center justify-between gap-3 sm:justify-end">
-                <button type="button" onClick={() => setCurrentMonth((value) => addMonths(value, -1))} disabled={!canGoToPreviousMonth} className="rounded-2xl border border-slate-200 bg-white p-2.5 text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">
-                  <ChevronLeft size={18} />
-                </button>
-                <div className="min-w-[180px] text-center">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Mes exibido</p>
-                  <h4 className="mt-1 break-words text-lg font-semibold capitalize text-slate-950">{formatMonthTitle(currentMonth)}</h4>
-                </div>
-                <button type="button" onClick={() => setCurrentMonth((value) => addMonths(value, 1))} className="rounded-2xl border border-slate-200 bg-white p-2.5 text-slate-600 transition hover:bg-slate-100">
-                  <ChevronRight size={18} />
-                </button>
-              </div>
+        {/* Weekday headers */}
+        <div className="shrink-0 grid grid-cols-7 border-b border-gray-100">
+          {WEEK_DAYS.map(d => (
+            <div key={d} className="py-2 text-center text-[11px] font-bold uppercase tracking-wide text-gray-400">
+              {d}
             </div>
+          ))}
+        </div>
 
-            <div className="mt-4 overflow-x-auto pb-2">
-              <div className="min-w-[720px]">
-                <div className="mb-4 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600"><span className="h-2 w-2 rounded-full bg-emerald-500" />Livre</span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700"><span className="h-2 w-2 rounded-full bg-rose-500" />Reservado</span>
-                  <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-500"><span className="h-2 w-2 rounded-full bg-slate-400" />Indisponivel</span>
-                </div>
-                <div className="grid grid-cols-7 gap-2">
-                  {WEEK_DAYS.map((day) => (
-                    <div key={day} className="px-2 py-1 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      {day}
-                    </div>
-                  ))}
+        {/* Grid */}
+        <div className="flex-1 min-h-0 grid grid-cols-7 grid-rows-6 overflow-hidden">
+          {grid.map((day, i) => {
+            const key = toKey(day);
+            const inMonth = isSameMonth(day, currentMonth);
+            const isToday = key === todayKey;
+            const isSelected = key === selectedDate;
+            const booking = byDate.get(key);
+            const isPast = startOfDay(day).getTime() < startOfDay(today).getTime();
+            const isOwnBooking = booking?.userId === currentUser?.id;
 
-                  {monthDays.map((day) => {
-                    const key = toDateInputValue(day);
-                    const inCurrentMonth = isSameMonth(day, currentMonth);
-                    const isToday = key === toDateInputValue(today);
-                    const isSelected = key === selectedDate;
-                    const booking = (bookingsByDate.get(key) ?? [])[0] ?? null;
-                    const isPastDay = startOfDay(day).getTime() < todayStart.getTime();
-                    const isLockedByAnotherResident = booking !== null && booking.userId !== currentUser?.id;
-                    const isBlocked = !inCurrentMonth || isPastDay || isLockedByAnotherResident;
-                    const dayTone = isPastDay
-                      ? "border-slate-200 bg-slate-100 text-slate-400"
-                      : isLockedByAnotherResident
-                        ? "border-rose-200 bg-rose-50 text-rose-700"
-                        : inCurrentMonth
-                          ? "border-slate-200 bg-white hover:-translate-y-0.5 hover:border-slate-300"
-                          : "border-slate-200 bg-slate-100/80 text-slate-400";
+            return (
+              <button
+                key={`${key}-${i}`}
+                type="button"
+                onClick={() => inMonth && selectDay(day)}
+                className={`relative flex flex-col items-start border-b border-r border-gray-100 px-2 py-1.5 text-left transition-colors last:border-r-0 ${
+                  !inMonth
+                    ? "bg-gray-50/60 cursor-default"
+                    : isSelected
+                      ? "bg-indigo-600 cursor-pointer"
+                      : isPast
+                        ? "bg-gray-50 cursor-default"
+                        : "hover:bg-indigo-50/50 cursor-pointer"
+                }`}
+              >
+                <span className={`text-xs font-bold leading-none ${
+                  !inMonth ? "text-gray-300"
+                  : isSelected ? "text-white"
+                  : isToday ? "text-indigo-600"
+                  : isPast ? "text-gray-400"
+                  : "text-gray-800"
+                }`}>
+                  {day.getDate()}
+                </span>
 
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => openDay(day)}
-                        disabled={isBlocked}
-                        className={`min-h-[78px] rounded-[18px] border px-2.5 py-2 text-left transition ${
-                          isSelected
-                            ? "border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/10"
-                            : dayTone
-                        } ${isBlocked ? "cursor-not-allowed hover:translate-y-0" : ""}`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <span className={`text-sm font-semibold ${!inCurrentMonth && !isSelected ? "text-slate-400" : ""}`}>{day.getDate()}</span>
-                          {isToday && (
-                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${isSelected ? "bg-white/15 text-white" : "bg-indigo-50 text-indigo-700"}`}>
-                              Hoje
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-3">
-                          <div className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                            isPastDay
-                              ? isSelected
-                                ? "bg-white/15 text-white"
-                                : "bg-slate-200 text-slate-500"
-                              : booking
-                                ? isSelected
-                                  ? "bg-rose-400/20 text-rose-100"
-                                  : "bg-rose-50 text-rose-700"
-                                : isSelected
-                                  ? "bg-emerald-400/20 text-emerald-100"
-                                  : "bg-emerald-50 text-emerald-700"
-                          }`}>
-                            <span className={`inline-block h-2 w-2 rounded-full ${isPastDay ? "bg-slate-400" : booking ? "bg-rose-500" : "bg-emerald-500"}`} />
-                            {isPastDay ? "Encerrado" : booking ? "Reservado" : "Livre"}
-                          </div>
-                          {booking && <p className={`mt-1 truncate text-[10px] ${isSelected ? "text-slate-200" : isLockedByAnotherResident ? "text-rose-600" : "text-slate-500"}`}>{booking.time}</p>}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
+                {isToday && !isSelected && (
+                  <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                )}
 
-          <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-base font-semibold text-slate-900">Proximas reservas</h3>
-                <p className="mt-1 text-sm text-slate-500">So o essencial para acompanhar o que vem pela frente.</p>
-              </div>
-              <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600">
-                {resourceBookings.length} registros
-              </div>
-            </div>
+                {booking && inMonth && (
+                  <div className={`mt-auto w-full rounded px-1 py-0.5 text-[10px] font-semibold truncate leading-tight ${
+                    isSelected
+                      ? "bg-white/20 text-white"
+                      : isOwnBooking
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-rose-100 text-rose-700"
+                  }`}>
+                    {booking.time} · {booking.authorName.split(" ")[0]}
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </>
+    );
+  }
 
-            {loading ? (
-              <div className="mt-4 rounded-[24px] bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">Carregando reservas...</div>
-            ) : nextBookings.length === 0 ? (
-              <div className="mt-4 rounded-[24px] bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">Nenhuma reserva encontrada para este local.</div>
-            ) : (
-              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {nextBookings.map((booking) => (
-                  <button
-                    key={booking.id}
-                    type="button"
-                    onClick={() => {
-                      setSelectedDate(booking.date);
-                      setCurrentMonth(startOfMonth(new Date(`${booking.date}T12:00:00`)));
-                      setModalOpen(true);
-                    }}
-                    className="rounded-[24px] border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-slate-300 hover:bg-white"
-                  >
-                    <p className="text-sm font-semibold text-slate-900">{new Date(`${booking.date}T12:00:00`).toLocaleDateString("pt-BR")}</p>
-                    <p className="mt-1 text-xs text-slate-500">{booking.time} · {booking.duration}</p>
-                    <p className="mt-3 text-xs font-medium text-slate-600">{booking.authorName}</p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {message && <p className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{message}</p>}
-        {error && <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{error}</p>}
+  // ── Render ───────────────────────────────────────────────────────────────────
+  return (
+    <AppLayout title="Agendamentos">
+      {/* Mobile tab switcher */}
+      <div className="mb-3 flex gap-2 md:hidden">
+        {(["cal","list"] as const).map(tab => (
+          <button key={tab} onClick={() => setMobileTab(tab)}
+            className={`flex-1 rounded-xl py-2 text-xs font-semibold transition-colors ${mobileTab===tab ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600"}`}>
+            {tab === "cal" ? "Calendário" : "Lista"}
+          </button>
+        ))}
       </div>
 
-      <DayModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        date={selectedDate}
-        resource={selectedResource}
-        booking={selectedBooking}
-        currentUserId={currentUser?.id != null ? String(currentUser.id) : undefined}
-        time={time}
-        setTime={setTime}
-        duration={duration}
-        setDuration={setDuration}
-        note={note}
-        setNote={setNote}
-        saving={saving}
-        onBook={handleBook}
-        onCancel={handleCancel}
-      />
+      {/* Desktop: two-column, full height */}
+      <div className="hidden md:flex h-full gap-4 overflow-hidden">
+        {/* Left */}
+        <div className="w-72 shrink-0 flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+          <BookingList />
+        </div>
+        {/* Right */}
+        <div className="flex-1 flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white">
+          <CalendarPanel />
+        </div>
+      </div>
+
+      {/* Mobile: single panel based on tab */}
+      <div className="md:hidden flex flex-col h-full overflow-hidden rounded-2xl border border-gray-200 bg-white">
+        {mobileTab === "cal"
+          ? <CalendarPanel />
+          : <div className="flex flex-col h-full overflow-hidden bg-gray-50"><BookingList /></div>
+        }
+      </div>
     </AppLayout>
   );
 }

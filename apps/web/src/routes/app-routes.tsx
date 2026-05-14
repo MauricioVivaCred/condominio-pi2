@@ -10,6 +10,7 @@ import ListaOcorrencias from "../pages/ocorrencias/lista-ocorrencias.tsx";
 import MapaPredio from "../pages/predio/mapa-predio";
 import ChatPage from "../pages/chat/index.tsx";
 import Agendamentos from "../pages/agendamentos/index.tsx";
+import NovoAgendamento from "../pages/agendamentos/novo/index.tsx";
 import EnquetesPage from "../pages/enquetes/index.tsx";
 import EncomendasPage from "../pages/encomendas/index.tsx";
 import FinanceiroPage from "../pages/financeiro/index.tsx";
@@ -45,7 +46,8 @@ export default function AppRoutes() {
         <Route path="/chat"         element={<ProtectedRoute path="/chat"><ChatPage /></ProtectedRoute>} />
         <Route path="/enquetes"     element={<ProtectedRoute path="/enquetes"><EnquetesPage /></ProtectedRoute>} />
         <Route path="/ocorrencias"  element={<ProtectedRoute path="/ocorrencias"><ListaOcorrencias /></ProtectedRoute>} />
-        <Route path="/agendamentos" element={<ProtectedRoute path="/agendamentos"><Agendamentos /></ProtectedRoute>} />
+        <Route path="/agendamentos"      element={<ProtectedRoute path="/agendamentos"><Agendamentos /></ProtectedRoute>} />
+        <Route path="/agendamentos/novo" element={<ProtectedRoute path="/agendamentos/novo"><NovoAgendamento /></ProtectedRoute>} />
         <Route path="/visitantes"   element={<ProtectedRoute path="/visitantes"><VisitantesPage /></ProtectedRoute>} />
         <Route path="/encomendas"   element={<ProtectedRoute path="/encomendas"><EncomendasPage /></ProtectedRoute>} />
         <Route path="/financeiro"         element={<ProtectedRoute path="/financeiro"><FinanceiroPage /></ProtectedRoute>} />

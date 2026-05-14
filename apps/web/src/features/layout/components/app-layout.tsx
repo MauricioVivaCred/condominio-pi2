@@ -20,6 +20,7 @@ import {
   MessageSquare,
   Moon,
   Package,
+  Plus,
   Settings,
   Sun,
   User,
@@ -85,7 +86,14 @@ function buildGroups(role: string | undefined, plan: PlanId): NavGroup[] {
     {
       title: "Áreas Comuns",
       links: [
-        { label: "Agendamentos", path: "/agendamentos", icon: CalendarDays },
+        {
+          label: "Agendamentos",
+          icon: CalendarDays,
+          children: [
+            { label: "Ver agendamentos", path: "/agendamentos", icon: CalendarDays },
+            { label: "Criar agendamento", path: "/agendamentos/novo", icon: Plus },
+          ],
+        },
         { label: "Garagem", path: "/garagem", icon: CarFront },
       ],
     },
