@@ -325,37 +325,35 @@ export default function UsuariosPage() {
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <AppLayout title="Usuários">
-      <div className="grid gap-4">
+      <div className="flex flex-col gap-4 md:h-full">
 
         {/* Toolbar */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            {!isResident && (
-              <button
-                onClick={() => setFilterPanelOpen(true)}
-                className={`relative flex items-center justify-center w-9 h-9 rounded-xl border cursor-pointer transition-colors ${activeFilterCount > 0 ? "bg-indigo-50 border-indigo-300 text-indigo-600" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}
-              >
-                <Filter size={15} />
-                {activeFilterCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
-                    {activeFilterCount}
-                  </span>
-                )}
+        <div className="shrink-0 flex items-center gap-3 flex-wrap">
+          {!isResident && (
+            <button
+              onClick={() => setFilterPanelOpen(true)}
+              className={`relative shrink-0 flex items-center justify-center w-9 h-9 rounded-xl border cursor-pointer transition-colors ${activeFilterCount > 0 ? "bg-indigo-50 border-indigo-300 text-indigo-600" : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"}`}
+            >
+              <Filter size={15} />
+              {activeFilterCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center">
+                  {activeFilterCount}
+                </span>
+              )}
+            </button>
+          )}
+          <div className="relative flex-1 min-w-0">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <input
+              type="text" placeholder={isResident ? "Buscar por nome..." : "Buscar por nome, email, telefone, bloco ou placa..."}
+              value={searchText} onChange={(e) => setSearchText(e.target.value)}
+              className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl bg-white text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-400 w-full transition-colors"
+            />
+            {searchText && (
+              <button onClick={() => setSearchText("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer">
+                <X size={13} />
               </button>
             )}
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-              <input
-                type="text" placeholder={isResident ? "Buscar por nome..." : "Buscar por nome, email, telefone, bloco ou placa..."}
-                value={searchText} onChange={(e) => setSearchText(e.target.value)}
-                className="pl-8 pr-3 py-2 border border-gray-200 rounded-xl bg-white text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-indigo-400 w-80 transition-colors"
-              />
-              {searchText && (
-                <button onClick={() => setSearchText("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer">
-                  <X size={13} />
-                </button>
-              )}
-            </div>
           </div>
           {isAdmin && (
             <div className="flex flex-col items-end gap-1 shrink-0">
@@ -378,7 +376,7 @@ export default function UsuariosPage() {
           )}
         </div>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="shrink-0 text-sm text-red-500">{error}</p>}
 
         {/* Loading */}
         {loading && (
@@ -397,10 +395,10 @@ export default function UsuariosPage() {
 
         {/* Table */}
         {!loading && pageItems.length > 0 && (
-          <div className="hidden md:block bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="hidden md:flex flex-col flex-1 min-h-0 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-auto">
               <table className="w-full border-collapse text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-50/80">
                     <SortTh col="name" label="Nome" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
                     <SortTh col="role" label="Perfil" sortKey={sortKey} sortDir={sortDir} onSort={handleSort} />
@@ -464,7 +462,7 @@ export default function UsuariosPage() {
                 </tbody>
               </table>
             </div>
-            <div className="px-3 py-2 border-t border-gray-100">
+            <div className="shrink-0 px-3 py-2 border-t border-gray-100">
               <Pagination page={safePage} totalPages={totalPages} total={totalFiltered} pageSize={pageSize} setPage={setPage} setPageSize={setPageSize} />
             </div>
           </div>
