@@ -17,7 +17,7 @@ import {
 import AppLayout from "../../features/layout/components/app-layout";
 import { getUser } from "../../features/auth/services/auth";
 import { inviteUser, listUsers, updateUserRecord, type InviteUserPayload, type UpdateUserPayload, type UserRecord } from "../../features/dashboard/services/users";
-import { fetchSantosWeather, type WeatherSnapshot } from "../../features/dashboard/services/weather";
+import { fetchWeather, type WeatherSnapshot } from "../../features/dashboard/services/weather";
 import { listOcorrencias, type Ocorrencia } from "../../features/ocorrencias/services/ocorrencias";
 import { UserFormModal, EMPTY_USER_FORM, type UserFormState } from "./components/user-form-modal";
 
@@ -99,7 +99,7 @@ export default function DashboardAdmin() {
       .then(setOcorrencias)
       .catch((e: Error) => setOcorrenciasError(e.message))
       .finally(() => setOcorrenciasLoading(false));
-    fetchSantosWeather()
+    fetchWeather()
       .then(setWeather)
       .catch(() => setWeather(null))
       .finally(() => setWeatherLoading(false));
@@ -204,80 +204,85 @@ export default function DashboardAdmin() {
 
   return (
     <AppLayout title="Dashboard · Visão Geral">
+      <style>{`
+        @keyframes kpi-scroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .kpi-track { animation: kpi-scroll 28s linear infinite; }
+        .kpi-track:hover { animation-play-state: paused; }
+      `}</style>
       <div className="grid gap-5">
 
-        {/* ── KPIs ── */}
-        <section className="grid grid-cols-12 gap-4">
-          {kpis.map((k) => {
-            const Icon = k.icon;
-            return (
-              <div
-                key={k.title}
-                className={`col-span-12 sm:col-span-6 lg:col-span-3 bg-linear-to-br ${k.gradient} border ${k.border} rounded-2xl p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-default`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className={`w-9 h-9 rounded-xl ${k.iconBg} flex items-center justify-center shrink-0`}>
-                    <Icon size={18} className={k.iconColor} />
-                  </div>
-                  <span className="text-[11px] text-gray-400 border border-gray-200 bg-white px-2 py-1 rounded-full whitespace-nowrap">
-                    {k.badge}
-                  </span>
-                </div>
-                <div className="mt-3 text-[30px] font-extrabold tracking-tight text-gray-900 leading-none">
-                  {k.kpi}
-                </div>
-                <p className="mt-1 text-xs font-semibold text-gray-700">{k.title}</p>
-                <p className="mt-0.5 text-[11px] text-gray-400">{k.foot}</p>
+        {/* ── Clima + KPIs em esteira ── */}
+        <section className="flex gap-4 overflow-hidden">
+
+          {/* Weather compact card */}
+          <div className="shrink-0 w-52 rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm flex flex-col gap-3">
+            {weatherLoading ? (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-sky-200 border-t-sky-500" />
               </div>
-            );
-          })}
+            ) : weather ? (
+              <>
+                <div className="flex items-start justify-between">
+                  <CloudSun size={20} className="text-sky-500" />
+                  <span className="text-[10px] font-semibold text-sky-500 uppercase tracking-wide">Clima</span>
+                </div>
+                <div>
+                  <p className="text-4xl font-black tracking-tight text-slate-900 leading-none">{Math.round(weather.temperature)}°C</p>
+                  <p className="text-xs text-slate-500 mt-1">{weather.condition}</p>
+                </div>
+                <div className="space-y-1.5 text-[11px] text-slate-500">
+                  <div className="flex items-center justify-between">
+                    <span>Sensação</span><span className="font-semibold text-slate-700">{Math.round(weather.apparentTemperature)}°C</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Máx / Mín</span><span className="font-semibold text-slate-700">{Math.round(weather.high)}° / {Math.round(weather.low)}°</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Droplets size={11} className="text-sky-400" /><span className="font-semibold text-slate-700">{weather.humidity}%</span>
+                    <Wind size={11} className="text-sky-400 ml-2" /><span className="font-semibold text-slate-700">{Math.round(weather.windSpeed)} km/h</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-400 truncate mt-auto">{weather.city}</p>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center gap-1 text-center">
+                <CloudSun size={24} className="text-gray-300" />
+                <p className="text-[11px] text-gray-400">Clima indisponível</p>
+              </div>
+            )}
+          </div>
+
+          {/* KPI esteira */}
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <div className="kpi-track flex gap-4" style={{ width: "max-content" }}>
+              {[...kpis, ...kpis].map((k, i) => {
+                const Icon = k.icon;
+                return (
+                  <div key={i}
+                    className={`w-52 shrink-0 bg-gradient-to-br ${k.gradient} border ${k.border} rounded-2xl p-4 shadow-sm cursor-default`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className={`w-9 h-9 rounded-xl ${k.iconBg} flex items-center justify-center shrink-0`}>
+                        <Icon size={18} className={k.iconColor} />
+                      </div>
+                      <span className="text-[10px] text-gray-400 border border-gray-200 bg-white px-2 py-0.5 rounded-full whitespace-nowrap">
+                        {k.badge}
+                      </span>
+                    </div>
+                    <div className="mt-3 text-[28px] font-extrabold tracking-tight text-gray-900 leading-none">{k.kpi}</div>
+                    <p className="mt-1 text-xs font-semibold text-gray-700">{k.title}</p>
+                    <p className="mt-0.5 text-[11px] text-gray-400">{k.foot}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </section>
 
         {/* ── Financeiro + Inadimplência ── */}
         <section className="grid grid-cols-12 gap-4">
-
-          {/* Resumo Financeiro — line chart */}
-          <div className="col-span-12 overflow-hidden rounded-[28px] border border-sky-100 bg-[radial-gradient(circle_at_top_left,_rgba(125,211,252,0.35),_transparent_28%),linear-gradient(135deg,_#f0f9ff_0%,_#ffffff_45%,_#ecfeff_100%)] p-5 shadow-sm">
-            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-              <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/90 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-sky-700">
-                  <CloudSun size={13} />
-                  Tempo em Santos
-                </div>
-                <h3 className="mt-4 text-xl font-black tracking-tight text-slate-950">Clima atual para acompanhar operação e rotina do condomínio</h3>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">Visão rápida com temperatura, sensação térmica e condições do dia em Santos, SP.</p>
-              </div>
-
-              {weather ? (
-                <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <div className="min-w-0 rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Agora</p>
-                    <p className="mt-1 break-words text-[clamp(1.5rem,2vw,2.2rem)] font-black leading-tight tracking-[-0.04em] text-slate-950">{Math.round(weather.temperature)}°C</p>
-                    <p className="mt-1 text-xs text-slate-500">{weather.condition}</p>
-                  </div>
-                  <div className="min-w-0 rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Sensacao</p>
-                    <p className="mt-1 text-lg font-bold text-slate-950">{Math.round(weather.apparentTemperature)}°C</p>
-                    <p className="mt-1 text-xs text-slate-500">Max {Math.round(weather.high)}°C - Min {Math.round(weather.low)}°C</p>
-                  </div>
-                  <div className="min-w-0 rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
-                    <div className="flex items-center gap-2 text-slate-500"><Droplets size={14} /><span className="text-[11px] font-semibold uppercase tracking-wide">Umidade</span></div>
-                    <p className="mt-2 text-lg font-bold text-slate-950">{weather.humidity}%</p>
-                    <p className="mt-1 text-xs text-slate-500">{weather.city}</p>
-                  </div>
-                  <div className="min-w-0 rounded-2xl border border-white/80 bg-white/85 px-4 py-3 shadow-sm">
-                    <div className="flex items-center gap-2 text-slate-500"><Wind size={14} /><span className="text-[11px] font-semibold uppercase tracking-wide">Vento</span></div>
-                    <p className="mt-2 text-lg font-bold text-slate-950">{Math.round(weather.windSpeed)} km/h</p>
-                    <p className="mt-1 text-xs text-slate-500">Atualizado {new Date(`${weather.fetchedAt}:00`).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-white/80 bg-white/85 px-4 py-4 text-sm text-slate-500 shadow-sm">
-                  {weatherLoading ? "Carregando clima de Santos..." : "Não foi possível carregar o clima agora."}
-                </div>
-              )}
-            </div>
-          </div>
 
           <div className="col-span-12 lg:col-span-8 bg-white border border-gray-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="flex items-start justify-between gap-3 mb-4">
