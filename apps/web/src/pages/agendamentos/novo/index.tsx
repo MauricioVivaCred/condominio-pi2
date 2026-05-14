@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import AppLayout from "../../../features/layout/components/app-layout";
 import {
   createResourceBooking,
@@ -64,6 +64,19 @@ export default function NovoAgendamento() {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [localOpen, setLocalOpen] = useState(false);
+  const localRef = useRef<HTMLDivElement>(null);
+  const localRefMobile = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      const t = e.target as Node;
+      if (localRef.current && !localRef.current.contains(t)) setLocalOpen(false);
+      if (localRefMobile.current && !localRefMobile.current.contains(t)) setLocalOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   useEffect(() => {
     Promise.all([listRecursos(true), listResourceBookings()]).then(([recs, bks]) => {
@@ -255,30 +268,48 @@ export default function NovoAgendamento() {
             <div className="flex-1 min-w-0">
               <label className={labelCls}>Responsável</label>
               <input type="text" value={currentUser?.name ?? currentUser?.email ?? ""} disabled
-                className={`${inputCls} bg-gray-50 text-gray-500 cursor-not-allowed`} />
+                className={`${inputCls} bg-gray-100 text-gray-400 cursor-not-allowed select-none`} />
             </div>
 
             <div className="w-px self-stretch bg-gray-100" />
 
-            {/* Local */}
-            <div className="shrink-0">
+            {/* Local — dropdown customizado */}
+            <div className="shrink-0" ref={localRef}>
               <label className={labelCls}>Local</label>
-              <div className="flex gap-1.5">
-                {recursos.map(r => {
-                  const Icon = getIcone(r.icone);
-                  const active = resource === r.slug;
-                  return (
-                    <button key={r.slug} type="button"
-                      onClick={() => { setResource(r.slug); setSelectedDate(null); }}
-                      className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap ${
-                        active ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+              {(() => {
+                const selected = recursos.find(r => r.slug === resource);
+                const SelectedIcon = selected ? getIcone(selected.icone) : null;
+                return (
+                  <div className="relative">
+                    <button type="button" onClick={() => setLocalOpen(o => !o)}
+                      className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap min-w-[140px] ${
+                        localOpen ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
                       }`}>
-                      <Icon size={14} className={active ? "text-indigo-500" : "text-gray-400"} />
-                      {r.nome}
+                      {SelectedIcon && <SelectedIcon size={14} className={localOpen ? "text-indigo-500" : "text-gray-400"} />}
+                      <span className="flex-1 text-left">{selected?.nome ?? "Selecionar"}</span>
+                      <ChevronDown size={14} className={`transition-transform ${localOpen ? "rotate-180 text-indigo-400" : "text-gray-400"}`} />
                     </button>
-                  );
-                })}
-              </div>
+                    {localOpen && (
+                      <div className="absolute top-full left-0 mt-1 z-50 min-w-full bg-white border border-gray-200 rounded-xl shadow-lg py-1 overflow-hidden">
+                        {recursos.map(r => {
+                          const Icon = getIcone(r.icone);
+                          const active = resource === r.slug;
+                          return (
+                            <button key={r.slug} type="button"
+                              onClick={() => { setResource(r.slug); setSelectedDate(null); setLocalOpen(false); }}
+                              className={`flex items-center gap-2.5 w-full px-3 py-2 text-sm font-semibold text-left transition-colors whitespace-nowrap ${
+                                active ? "bg-indigo-50 text-indigo-700" : "text-gray-700 hover:bg-gray-50"
+                              }`}>
+                              <Icon size={14} className={active ? "text-indigo-500" : "text-gray-400"} />
+                              {r.nome}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="w-px self-stretch bg-gray-100" />
@@ -353,28 +384,44 @@ export default function NovoAgendamento() {
           <div>
             <label className={labelCls}>Responsável</label>
             <input type="text" value={currentUser?.name ?? currentUser?.email ?? ""} disabled
-              className={`${inputCls} bg-gray-50 text-gray-500 cursor-not-allowed`} />
+              className={`${inputCls} bg-gray-100 text-gray-400 cursor-not-allowed select-none`} />
           </div>
-          <div>
+          <div ref={localRefMobile}>
             <label className={labelCls}>Local</label>
-            <div className="flex flex-col gap-2">
-              {recursos.map(r => {
-                const Icon = getIcone(r.icone);
-                const active = resource === r.slug;
-                return (
-                  <button key={r.slug} type="button"
-                    onClick={() => { setResource(r.slug); setSelectedDate(null); }}
-                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left transition-colors ${
-                      active ? "border-indigo-300 bg-indigo-50" : "border-gray-200 hover:border-gray-300"
+            {(() => {
+              const selected = recursos.find(r => r.slug === resource);
+              const SelectedIcon = selected ? getIcone(selected.icone) : null;
+              return (
+                <div className="relative">
+                  <button type="button" onClick={() => setLocalOpen(o => !o)}
+                    className={`flex items-center gap-2 w-full rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors ${
+                      localOpen ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-gray-200 bg-white text-gray-700"
                     }`}>
-                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${active ? "bg-indigo-100" : "bg-gray-100"}`}>
-                      <Icon size={15} className={active ? "text-indigo-600" : "text-gray-400"} />
-                    </span>
-                    <span className={`text-sm font-semibold ${active ? "text-indigo-700" : "text-gray-700"}`}>{r.nome}</span>
+                    {SelectedIcon && <SelectedIcon size={14} className={localOpen ? "text-indigo-500" : "text-gray-400"} />}
+                    <span className="flex-1 text-left">{selected?.nome ?? "Selecionar"}</span>
+                    <ChevronDown size={14} className={`transition-transform ${localOpen ? "rotate-180 text-indigo-400" : "text-gray-400"}`} />
                   </button>
-                );
-              })}
-            </div>
+                  {localOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-white border border-gray-200 rounded-xl shadow-lg py-1 overflow-hidden">
+                      {recursos.map(r => {
+                        const Icon = getIcone(r.icone);
+                        const active = resource === r.slug;
+                        return (
+                          <button key={r.slug} type="button"
+                            onClick={() => { setResource(r.slug); setSelectedDate(null); setLocalOpen(false); }}
+                            className={`flex items-center gap-2.5 w-full px-3 py-2.5 text-sm font-semibold text-left transition-colors ${
+                              active ? "bg-indigo-50 text-indigo-700" : "text-gray-700 hover:bg-gray-50"
+                            }`}>
+                            <Icon size={15} className={active ? "text-indigo-500" : "text-gray-400"} />
+                            {r.nome}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
