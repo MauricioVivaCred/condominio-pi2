@@ -107,8 +107,15 @@ function buildGroups(role: string | undefined, plan: PlanId): NavGroup[] {
   groups.push({ title: "Operações", links: operacoesLinks });
 
   if (role === "ADMIN" || role === "MASTER_ADMIN") {
-    const gestaoLinks: NavLink[] = [
-      { label: "Edifício",  path: "/predio",   icon: Building2 },
+    const gestaoLinks: NavItem[] = [
+      {
+        label: "Edifício",
+        icon: Building2,
+        children: [
+          { label: "Mapa do edifício", path: "/predio", icon: Building2 },
+          { label: "Documentos", path: "/predio/documentos", icon: FileText },
+        ],
+      },
       { label: "Moradores", path: "/usuarios", icon: Users },
       ...(role === "ADMIN" ? [{ label: "Áreas Comuns", path: "/areas-comuns", icon: CalendarDays }] : []),
     ];

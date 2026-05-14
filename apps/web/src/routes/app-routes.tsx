@@ -8,6 +8,9 @@ import Dashboard from "../pages/dashboard/index.tsx";
 import ListaAvisos from "../pages/avisos/lista-avisos.tsx";
 import ListaOcorrencias from "../pages/ocorrencias/lista-ocorrencias.tsx";
 import MapaPredio from "../pages/predio/mapa-predio";
+import DocumentosList from "../pages/predio/documentos/index.tsx";
+import DocumentosNovo from "../pages/predio/documentos/novo.tsx";
+import DocumentoDetalhe from "../pages/predio/documentos/[id].tsx";
 import AreasComuns from "../pages/areas-comuns/index.tsx";
 import ChatPage from "../pages/chat/index.tsx";
 import Agendamentos from "../pages/agendamentos/index.tsx";
@@ -58,6 +61,9 @@ export default function AppRoutes() {
         <Route path="/garagem"      element={<ProtectedRoute path="/garagem"><GaragemPage /></ProtectedRoute>} />
         <Route path="/perfil"       element={<ProtectedRoute path="/perfil"><Perfil /></ProtectedRoute>} />
         <Route path="/predio"        element={<ProtectedRoute path="/predio"><MapaPredio /></ProtectedRoute>} />
+        <Route path="/predio/documentos"      element={<ProtectedRoute path="/predio/documentos"><DocumentosList /></ProtectedRoute>} />
+        <Route path="/predio/documentos/novo" element={<ProtectedRoute path="/predio/documentos/novo"><DocumentosNovo /></ProtectedRoute>} />
+        <Route path="/predio/documentos/:id"  element={<ProtectedRoute path="/predio/documentos"><DocumentoDetalhe /></ProtectedRoute>} />
         <Route path="/areas-comuns"  element={<ProtectedRoute path="/areas-comuns"><AreasComuns /></ProtectedRoute>} />
         <Route path="/usuarios"     element={<ProtectedRoute path="/usuarios"><UsuariosPage /></ProtectedRoute>} />
         <Route path="/manutencao"   element={<ProtectedRoute path="/manutencao"><MaresiaPage /></ProtectedRoute>} />

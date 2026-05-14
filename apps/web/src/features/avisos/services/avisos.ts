@@ -266,6 +266,7 @@ export async function listNotificacoes(): Promise<Notificacao[]> {
     .from("system_notifications")
     .select("id, title, message, category, link, read, created_at")
     .eq("read", false)
+    .lte("created_at", new Date().toISOString())
     .order("created_at", { ascending: false });
 
   const [avisosResult, systemResult] = await Promise.all([avisosPromise, systemPromise]);
