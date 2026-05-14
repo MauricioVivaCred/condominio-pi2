@@ -246,10 +246,10 @@ export default function ListaAvisos() {
 
   return (
     <AppLayout title="Avisos do Condomínio">
-      <div className="grid gap-4">
+      <div className="flex flex-col gap-4 md:h-full">
 
         {/* ── Toolbar ── */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="shrink-0 flex items-center gap-3 flex-wrap">
           {/* Filter button */}
           <button
             onClick={() => setFilterPanelOpen(true)}
@@ -295,7 +295,7 @@ export default function ListaAvisos() {
         </div>
 
         {/* Error */}
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="shrink-0 text-sm text-red-500">{error}</p>}
 
         {/* Loading skeleton */}
         {loading && (
@@ -320,10 +320,10 @@ export default function ListaAvisos() {
 
         {/* ── Table desktop (md+) ── */}
         {!loading && pageItems.length > 0 && (
-          <div className="hidden md:block bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className="hidden md:flex flex-col flex-1 min-h-0 bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-auto">
               <table className="w-full border-collapse text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-50/80">
                     <th className="w-6 px-3 py-3 border-b border-gray-100 text-xs font-semibold tracking-wider text-gray-400 uppercase text-center">
                       <Pin size={12} className="inline" />
@@ -422,7 +422,7 @@ export default function ListaAvisos() {
             </div>
 
             {/* Pagination */}
-            <div className="px-3 py-2 border-t border-gray-100">
+            <div className="shrink-0 px-3 py-2 border-t border-gray-100">
               <Pagination
                 page={safePage}
                 totalPages={totalPages}
