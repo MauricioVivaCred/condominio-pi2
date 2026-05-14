@@ -218,7 +218,7 @@ export default function DashboardAdmin() {
         <section className="flex gap-4 overflow-hidden">
 
           {/* Weather compact card */}
-          <div className="shrink-0 w-52 rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm flex flex-col gap-3">
+          <div className="shrink-0 w-52 rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm flex flex-col">
             {weatherLoading ? (
               <div className="flex-1 flex items-center justify-center">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-sky-200 border-t-sky-500" />
@@ -226,18 +226,17 @@ export default function DashboardAdmin() {
             ) : weather ? (
               <>
                 <div className="flex items-start justify-between">
-                  <CloudSun size={20} className="text-sky-500" />
-                  <span className="text-[10px] font-semibold text-sky-500 uppercase tracking-wide">Clima</span>
+                  <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center shrink-0">
+                    <CloudSun size={18} className="text-sky-500" />
+                  </div>
+                  <span className="text-[10px] text-gray-400 border border-gray-200 bg-white px-2 py-0.5 rounded-full">Clima</span>
                 </div>
-                <div className="mt-1">
-                  <p className="text-[28px] font-extrabold tracking-tight text-slate-900 leading-none">{Math.round(weather.temperature)}°C</p>
-                  <p className="text-xs text-slate-500 mt-1">{weather.condition}</p>
-                </div>
-                <div className="flex items-center gap-3 text-[11px] text-slate-500">
-                  <span className="flex items-center gap-1"><Droplets size={11} className="text-sky-400" />{weather.humidity}%</span>
-                  <span className="flex items-center gap-1"><Wind size={11} className="text-sky-400" />{Math.round(weather.windSpeed)} km/h</span>
-                </div>
-                <p className="text-[10px] text-slate-400 truncate mt-auto">{weather.city}</p>
+                <div className="mt-3 text-[28px] font-extrabold tracking-tight text-slate-900 leading-none">{Math.round(weather.temperature)}°C</div>
+                <p className="mt-1 text-xs font-semibold text-gray-700">{weather.condition}</p>
+                <p className="mt-1 text-[11px] text-gray-400">
+                  <span className="inline-flex items-center gap-1 mr-2"><Droplets size={10} className="text-sky-400" />{weather.humidity}%</span>
+                  <span className="inline-flex items-center gap-1"><Wind size={10} className="text-sky-400" />{Math.round(weather.windSpeed)} km/h</span>
+                </p>
               </>
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center gap-1 text-center">
