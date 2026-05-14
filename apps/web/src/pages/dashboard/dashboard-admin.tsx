@@ -229,21 +229,13 @@ export default function DashboardAdmin() {
                   <CloudSun size={20} className="text-sky-500" />
                   <span className="text-[10px] font-semibold text-sky-500 uppercase tracking-wide">Clima</span>
                 </div>
-                <div>
-                  <p className="text-4xl font-black tracking-tight text-slate-900 leading-none">{Math.round(weather.temperature)}°C</p>
+                <div className="mt-1">
+                  <p className="text-[28px] font-extrabold tracking-tight text-slate-900 leading-none">{Math.round(weather.temperature)}°C</p>
                   <p className="text-xs text-slate-500 mt-1">{weather.condition}</p>
                 </div>
-                <div className="space-y-1.5 text-[11px] text-slate-500">
-                  <div className="flex items-center justify-between">
-                    <span>Sensação</span><span className="font-semibold text-slate-700">{Math.round(weather.apparentTemperature)}°C</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>Máx / Mín</span><span className="font-semibold text-slate-700">{Math.round(weather.high)}° / {Math.round(weather.low)}°</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Droplets size={11} className="text-sky-400" /><span className="font-semibold text-slate-700">{weather.humidity}%</span>
-                    <Wind size={11} className="text-sky-400 ml-2" /><span className="font-semibold text-slate-700">{Math.round(weather.windSpeed)} km/h</span>
-                  </div>
+                <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                  <span className="flex items-center gap-1"><Droplets size={11} className="text-sky-400" />{weather.humidity}%</span>
+                  <span className="flex items-center gap-1"><Wind size={11} className="text-sky-400" />{Math.round(weather.windSpeed)} km/h</span>
                 </div>
                 <p className="text-[10px] text-slate-400 truncate mt-auto">{weather.city}</p>
               </>
