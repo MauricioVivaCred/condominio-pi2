@@ -26,6 +26,13 @@ function addMonths(d: Date, n: number) { return new Date(d.getFullYear(), d.getM
 function isSameMonth(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
 }
+function timeToMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + (m || 0); }
+function durToMin(d: string) { const match = d.match(/^(\d+)h$/); return match ? parseInt(match[1]) * 60 : 60; }
+function timesOverlap(sA: string, dA: string, sB: string, dB: string) {
+  const a0 = timeToMin(sA), a1 = a0 + durToMin(dA);
+  const b0 = timeToMin(sB), b1 = b0 + durToMin(dB);
+  return a0 < b1 && b0 < a1;
+}
 function buildGrid(month: Date) {
   const first = startOfMonth(month);
   const start = new Date(first);
@@ -71,12 +78,19 @@ export default function NovoAgendamento() {
     [bookings, resource],
   );
   const byDate = useMemo(() => {
-    const m = new Map<string, ResourceBooking>();
-    for (const b of resourceBookings) m.set(b.date, b);
+    const m = new Map<string, ResourceBooking[]>();
+    for (const b of resourceBookings) {
+      const arr = m.get(b.date) ?? [];
+      arr.push(b);
+      m.set(b.date, arr);
+    }
     return m;
   }, [resourceBookings]);
 
-  const conflict = selectedDate ? byDate.get(selectedDate) ?? null : null;
+  const conflict = useMemo(() => {
+    if (!selectedDate || !time) return null;
+    return (byDate.get(selectedDate) ?? []).find(b => timesOverlap(time, duration, b.time, b.duration)) ?? null;
+  }, [selectedDate, time, duration, byDate]);
   const grid = useMemo(() => buildGrid(currentMonth), [currentMonth]);
   const canGoPrev = startOfMonth(currentMonth).getTime() > startOfMonth(today).getTime();
 
@@ -84,7 +98,7 @@ export default function NovoAgendamento() {
     e.preventDefault();
     if (!selectedDate) { setErr("Selecione uma data no calendário."); return; }
     if (!time) { setErr("Informe o horário."); return; }
-    if (conflict) { setErr("Esta data já está reservada para este local."); return; }
+    if (conflict) { setErr("Conflito de horário com reserva existente neste dia."); return; }
     setSaving(true);
     setErr("");
     try {
@@ -123,33 +137,53 @@ export default function NovoAgendamento() {
           ))}
         </div>
 
-        <div className={compact ? "grid grid-cols-7 gap-0.5" : "grid grid-cols-7 gap-0.5 flex-1 min-h-0 content-start"}>
+        <div className={`grid grid-cols-7 gap-px bg-gray-200 ${compact ? "" : "flex-1 min-h-0 grid-rows-6"}`}>
           {grid.map((day, i) => {
             const key = toKey(day);
             const inMonth = isSameMonth(day, currentMonth);
             const isToday = key === todayKey;
             const isSelected = key === selectedDate;
             const isPast = startOfDay(day).getTime() < startOfDay(today).getTime();
-            const hasBooking = byDate.has(key);
+            const dayBookings = byDate.get(key) ?? [];
+            const hasBooking = dayBookings.length > 0;
             const disabled = !inMonth || isPast;
 
             return (
               <button key={`${key}-${i}`} type="button" disabled={disabled}
                 onClick={() => !disabled && setSelectedDate(isSelected ? null : key)}
-                className={`relative flex items-center justify-center rounded-lg text-xs font-semibold transition-colors
-                  ${compact ? "h-9" : "h-full min-h-[2.25rem]"}
-                  ${disabled ? "text-gray-300 cursor-default"
-                    : isSelected ? "bg-indigo-600 text-white cursor-pointer"
-                    : hasBooking ? "bg-rose-50 text-rose-500 cursor-pointer hover:bg-rose-100"
-                    : isToday ? "bg-indigo-50 text-indigo-600 cursor-pointer hover:bg-indigo-100"
-                    : "text-gray-700 cursor-pointer hover:bg-gray-100"
+                className={`flex flex-col px-1.5 py-1 text-left transition-colors ${compact ? "min-h-[3rem]" : ""}
+                  ${isSelected ? "bg-indigo-600 cursor-pointer"
+                    : disabled ? "bg-gray-50 cursor-default"
+                    : "bg-white hover:bg-indigo-50/40 cursor-pointer"
                   }`}>
-                {day.getDate()}
-                {hasBooking && !isSelected && (
-                  <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-rose-400" />
-                )}
-                {isToday && !isSelected && !hasBooking && (
-                  <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-indigo-400" />
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-bold leading-none ${
+                    isSelected ? "text-white"
+                    : !inMonth ? "text-gray-300"
+                    : isToday ? "text-indigo-600"
+                    : isPast ? "text-gray-400"
+                    : "text-gray-800"
+                  }`}>{day.getDate()}</span>
+                  {isToday && !isSelected && (
+                    <span className="text-[8px] font-bold text-indigo-500 bg-indigo-100 px-0.5 leading-none rounded-sm">Hoje</span>
+                  )}
+                </div>
+                {inMonth && (
+                  <div className="mt-auto">
+                    {isPast ? (
+                      <span className={`flex items-center gap-0.5 text-[9px] ${isSelected ? "text-white/70" : "text-gray-400"}`}>
+                        <span className={`h-1 w-1 rounded-full ${isSelected ? "bg-white/50" : "bg-gray-300"}`} />Encerrado
+                      </span>
+                    ) : hasBooking ? (
+                      <span className={`flex items-center gap-0.5 text-[9px] ${isSelected ? "text-white" : "text-rose-600"}`}>
+                        <span className={`h-1 w-1 rounded-full ${isSelected ? "bg-white" : "bg-rose-500"}`} />Reservado
+                      </span>
+                    ) : (
+                      <span className={`flex items-center gap-0.5 text-[9px] ${isSelected ? "text-white" : "text-emerald-600"}`}>
+                        <span className={`h-1 w-1 rounded-full ${isSelected ? "bg-white" : "bg-emerald-500"}`} />Livre
+                      </span>
+                    )}
+                  </div>
                 )}
               </button>
             );

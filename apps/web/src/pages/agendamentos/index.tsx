@@ -76,15 +76,18 @@ export default function Agendamentos() {
   );
 
   const byDate = useMemo(() => {
-    const m = new Map<string, ResourceBooking>();
-    for (const b of resourceBookings) m.set(b.date, b);
+    const m = new Map<string, ResourceBooking[]>();
+    for (const b of resourceBookings) {
+      const arr = m.get(b.date) ?? [];
+      arr.push(b);
+      m.set(b.date, arr);
+    }
     return m;
   }, [resourceBookings]);
 
   const listBookings = useMemo(() => {
     if (selectedDate) {
-      const b = byDate.get(selectedDate);
-      return b ? [b] : [];
+      return byDate.get(selectedDate) ?? [];
     }
     const todayStart = startOfDay(today).getTime();
     return resourceBookings
@@ -221,44 +224,58 @@ export default function Agendamentos() {
         )}
 
         {recursos.length > 0 && (
-          <div className="flex-1 min-h-0 grid grid-cols-7 grid-rows-6 overflow-hidden">
+          <div className="flex-1 min-h-0 grid grid-cols-7 grid-rows-6 gap-px bg-gray-200 overflow-hidden">
             {grid.map((day, i) => {
               const key = toKey(day);
               const inMonth = isSameMonth(day, currentMonth);
               const isToday = key === todayKey;
               const isSelected = key === selectedDate;
-              const booking = byDate.get(key);
+              const dayBookings = byDate.get(key) ?? [];
+              const hasBooking = dayBookings.length > 0;
               const isPast = startOfDay(day).getTime() < startOfDay(today).getTime();
-              const isOwnBooking = booking?.userId === currentUser?.id;
 
               return (
                 <button key={`${key}-${i}`} type="button"
                   onClick={() => inMonth && selectDay(day)}
-                  className={`relative flex flex-col border-b border-r border-gray-100 px-2 py-1.5 text-left transition-colors ${
-                    !inMonth ? "bg-gray-50/60 cursor-default"
-                    : isSelected ? "bg-indigo-600 cursor-pointer"
-                    : isPast ? "bg-gray-50 cursor-default"
-                    : "hover:bg-indigo-50/50 cursor-pointer"
+                  className={`flex flex-col px-2 py-1.5 text-left transition-colors ${
+                    isSelected ? "bg-indigo-600 cursor-pointer"
+                    : !inMonth || isPast ? "bg-gray-50 cursor-default"
+                    : "bg-white hover:bg-indigo-50/40 cursor-pointer"
                   }`}>
-                  <span className={`text-xs font-bold leading-none ${
-                    !inMonth ? "text-gray-300"
-                    : isSelected ? "text-white"
-                    : isToday ? "text-indigo-600"
-                    : isPast ? "text-gray-400"
-                    : "text-gray-800"
-                  }`}>{day.getDate()}</span>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-bold leading-none ${
+                      isSelected ? "text-white"
+                      : !inMonth ? "text-gray-300"
+                      : isToday ? "text-indigo-600"
+                      : isPast ? "text-gray-400"
+                      : "text-gray-800"
+                    }`}>{day.getDate()}</span>
+                    {isToday && !isSelected && (
+                      <span className="text-[9px] font-bold text-indigo-500 bg-indigo-100 px-1 py-0.5 leading-none rounded-sm">Hoje</span>
+                    )}
+                  </div>
 
-                  {isToday && !isSelected && (
-                    <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                  )}
-
-                  {booking && inMonth && (
-                    <div className={`mt-auto w-full rounded px-1 py-0.5 text-[10px] font-semibold truncate leading-tight ${
-                      isSelected ? "bg-white/20 text-white"
-                      : isOwnBooking ? "bg-emerald-100 text-emerald-700"
-                      : "bg-rose-100 text-rose-700"
-                    }`}>
-                      {booking.time} · {booking.authorName.split(" ")[0]}
+                  {inMonth && (
+                    <div className="mt-auto">
+                      {isPast ? (
+                        <>
+                          <span className={`flex items-center gap-1 text-[10px] ${isSelected ? "text-white/70" : "text-gray-400"}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white/50" : "bg-gray-300"}`} />Encerrado
+                          </span>
+                          {hasBooking && !isSelected && (
+                            <span className="text-[10px] text-rose-400 font-semibold">{dayBookings[0].time}</span>
+                          )}
+                        </>
+                      ) : hasBooking ? (
+                        <span className={`flex items-center gap-1 text-[10px] ${isSelected ? "text-white" : "text-rose-600"}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : "bg-rose-500"}`} />
+                          {dayBookings.length > 1 ? `${dayBookings.length} reservas` : "Reservado"}
+                        </span>
+                      ) : (
+                        <span className={`flex items-center gap-1 text-[10px] ${isSelected ? "text-white" : "text-emerald-600"}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : "bg-emerald-500"}`} />Livre
+                        </span>
+                      )}
                     </div>
                   )}
                 </button>
